@@ -832,11 +832,13 @@ public class MainActivity extends AppCompatActivity {
                         btnVerifyDevice.setVisibility(View.INVISIBLE);
                         btnSyncUserList.setVisibility(View.VISIBLE);
                         btnUploadRidersLogs.setVisibility(View.VISIBLE);
+                        textViewLogTimeLabel.setVisibility(View.VISIBLE);
+                        spinnerTimeAllowance.setVisibility(View.VISIBLE);
 
                         if (ShowDeviceID())
                             InitDB();
                     } else {
-                        status.setText("This device is not allowed to used the app.");
+                        status.setText("This device is not allowed to use the app.");
                     }
 
                     dialogVerify.cancel();
