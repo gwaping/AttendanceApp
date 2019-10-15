@@ -105,7 +105,7 @@
         app:srcCompat="@drawable/ic_ejrf" />
 
     <TextView
-        android:id="@+id/textView"
+        android:id="@+id/tvPassengerCount"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="5dp"
@@ -113,6 +113,7 @@
         android:layout_marginRight="10dp"
         android:textSize="30sp"
         android:textAlignment="center"
+        android:textColor="@color/colorBlue"
         android:textStyle="bold"/>
 
     <TextClock
@@ -135,7 +136,7 @@
         android:layout_marginLeft="10dp"
         android:layout_marginRight="10dp"
         android:background="@drawable/rounded_corner_tv"
-        android:text="Welcome!\n Enjoy your free ride."
+        android:text="@string/welcome_greeting"
         android:textColor="#feff61"
         android:textSize="38sp"
         android:textAlignment="center"/>
@@ -151,7 +152,7 @@
     <TextView
         android:id="@+id/block"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_gravity="center_horizontal"
         android:layout_weight="1"
         android:gravity="center"

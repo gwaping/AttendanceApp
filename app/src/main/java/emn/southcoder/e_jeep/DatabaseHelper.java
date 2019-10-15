@@ -7,24 +7,16 @@ import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.support.annotation.Nullable;
-import android.util.Log;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.util.ArrayList;
-
 import emn.southcoder.e_jeep.model.EjeepTransaction;
 import emn.southcoder.e_jeep.model.Users;
-
-import static android.content.ContentValues.TAG;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
     // Database Version
     private static final int DATABASE_VERSION = 1;
 
     // Database Name
-    public static final String DATABASE_NAME = "MCC.db";
+    private static final String DATABASE_NAME = "MCC.db";
 
     private static DatabaseHelper sInstance;
 
@@ -175,9 +167,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // Select All Query
         String selectQuery = "SELECT  * FROM " + EjeepTransaction.TABLE_NAME + " ORDER BY " + EjeepTransaction.COLUMN_TRANSACTIONDATE + " ASC";
 
-        SQLiteDatabase db = this.getWritableDatabase();
-
-        try {
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
             Cursor cursor = db.rawQuery(selectQuery, null);
 
             // looping through all rows and adding to list
@@ -196,125 +186,102 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     ejeepTransactions.add(ejeepTransaction);
                 } while (cursor.moveToNext());
             }
+
+            cursor.close();
         } catch (SQLException e) {
             e.printStackTrace();
-        } finally {
-            // close db connection
-            db.close();
         }
+        // close db connection
 
         // return notes list
         return ejeepTransactions;
     }
 
-    public void deleteUserAll() {
-        SQLiteDatabase db = null;
+    public int GetTransactionCount() {
+        int retVal = 0;
+        String selectQuery = "SELECT COUNT(*) AS totalTransaction FROM " + EjeepTransaction.TABLE_NAME;
 
-        try {
-            db = this.getWritableDatabase();
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
+            Cursor cursor = db.rawQuery(selectQuery, null);
+
+            if (cursor != null)
+                cursor.moveToFirst();
+
+            retVal = cursor.getInt(cursor.getColumnIndex("totalTransaction"));
+
+            cursor.close();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // close db connection
+
+        return retVal;
+    }
+
+    public String GetUserRole(String mccNumber) {
+        String retVal = "";
+
+        String selectQuery = "SELECT Job FROM " + Users.TABLE_NAME + " WHERE MCCNumber = '"+mccNumber+"'";
+
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
+            Cursor cursor = db.rawQuery(selectQuery, null);
+
+            if (cursor != null)
+                cursor.moveToFirst();
+
+            retVal = cursor.getString(cursor.getColumnIndex(Users.COLUMN_JOB));
+
+            cursor.close();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // close db connection
+
+        return retVal;
+    }
+
+    public void deleteUserAll() {
+
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
             db.delete(Users.TABLE_NAME, null, null);
         } catch (SQLException e) {
             e.printStackTrace();
-        } finally {
-            db.close();
         }
     }
 
     public void deleteEjeepAll() {
-        SQLiteDatabase db = null;
 
-        try {
-            db = this.getWritableDatabase();
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
             db.delete(EjeepTransaction.TABLE_NAME, null, null);
         } catch (SQLException e) {
             e.printStackTrace();
-        } finally {
-            db.close();
         }
     }
 
     public boolean isValidLogin(String mccno, String access) {
-        SQLiteDatabase db = this.getWritableDatabase();
-        String sqlQuery = "select * from " + Users.TABLE_NAME + " where MCCNumber='" + mccno + "' and Job LIKE '%" + access + "%'";
 
-        try {
-            Cursor res = db.rawQuery(sqlQuery,null);
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
+            String sqlQuery = "select * from " + Users.TABLE_NAME + " where MCCNumber='" + mccno + "' and Job LIKE '%" + access + "%'";
+            Cursor res = db.rawQuery(sqlQuery, null);
             res.moveToFirst();
             int counter = 0;
 
-            while(res.isAfterLast() == false) {
+            while (!res.isAfterLast()) {
                 counter++;
                 res.moveToNext();
             }
 
-            if (counter > 0)
-                return true;
-            else
-                return false;
+            res.close();
+
+            return counter > 0;
         } catch (SQLException e) {
             e.printStackTrace();
-        } finally {
-           db.close();
         }
 
         return false;
     }
-
-//    private String cursorToString(Cursor crs) {
-//        JSONArray arr = new JSONArray();
-//        crs.moveToFirst();
-//        while (!crs.isAfterLast()) {
-//            int nColumns = crs.getColumnCount();
-//            JSONObject row = new JSONObject();
-//            for (int i = 0 ; i < nColumns ; i++) {
-//                String colName = crs.getColumnName(i);
-//                if (colName != null) {
-//                    String val = "";
-//                    try {
-//                        switch (crs.getType(i)) {
-//                            case Cursor.FIELD_TYPE_BLOB   : row.put(colName, crs.getBlob(i).toString()); break;
-//                            case Cursor.FIELD_TYPE_FLOAT  : row.put(colName, crs.getDouble(i))         ; break;
-//                            case Cursor.FIELD_TYPE_INTEGER: row.put(colName, crs.getLong(i))           ; break;
-//                            case Cursor.FIELD_TYPE_NULL   : row.put(colName, null)                     ; break;
-//                            case Cursor.FIELD_TYPE_STRING : row.put(colName, crs.getString(i))         ; break;
-//                        }
-//                    } catch (JSONException e) {
-//                    }
-//                }
-//            }
-//            arr.put(row);
-//            if (!crs.moveToNext())
-//                break;
-//        }
-//        crs.close(); // close the cursor
-//        return arr.toString();
-//    }
-//
-//    public JSONArray cur2Json(Cursor cursor) {
-//
-//        JSONArray resultSet = new JSONArray();
-//        cursor.moveToFirst();
-//        while (cursor.isAfterLast() == false) {
-//            int totalColumn = cursor.getColumnCount();
-//            JSONObject rowObject = new JSONObject();
-//            for (int i = 0; i < totalColumn; i++) {
-//                if (cursor.getColumnName(i) != null) {
-//                    try {
-//                        rowObject.put(cursor.getColumnName(i),
-//                                cursor.getString(i));
-//                    } catch (Exception e) {
-//                        Log.d(TAG, e.getMessage());
-//                    }
-//                }
-//            }
-//            resultSet.put(rowObject);
-//            cursor.moveToNext();
-//        }
-//
-//        cursor.close();
-//        return resultSet;
-//
-//    }
 }
 
 

@@ -8,9 +8,12 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.icu.text.SimpleDateFormat;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
 import android.media.ToneGenerator;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -25,6 +28,8 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.telephony.TelephonyManager;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.animation.Animation;
 import android.widget.AdapterView;
@@ -35,10 +40,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+
 import java.io.File;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import emn.southcoder.e_jeep.Interface.MCCPlaceHolderApi;
 import emn.southcoder.e_jeep.model.Device;
@@ -56,45 +63,32 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class MainActivity extends AppCompatActivity {
 
     private NfcAdapter nfcAdapter;
-    private TextView textViewBlock, textViewGreetings, textViewLogTimeLabel;
-    //TextView textViewMccNo, textViewSerialNo, textViewFName, textViewMName, textViewLName, textViewIssueDate, textViewExpiryDate, textViewInfo, textViewTagInfo;
-
+    private TextView textViewBlock, textViewGreetings, textViewLogTimeLabel, textViewRiderCount;
     private boolean isNFCSupported = false;
     private boolean loggedIn = false;
     private boolean loginAlertShown = false;
     private AlertDialog loginAlert;
-    private Tag tag;
-    private MifareClassic mifareClassicTag;
-//    Timer timerObj;
-//    TimerTask timerTaskObj;
-
-    private Handler handler;
-//    private int delay = 2*1000;
     private Animation animBlink;
-    private View vwLogin;
     private Spinner spinnerTimeAllowance;
-    private Button btnVerifyDevice, btnSyncUserList, btnUploadRidersLogs;
+    private Button btnVerifyDevice, btnSyncUserList;
     private TextView status;
+    private TextView tvmccnum, tvname, tvbirthdate, tvissuedate, tvexpirydate;
     private TelephonyManager tm;
     private DatabaseHelper dbHelper;
     private String deviceID = null;
-    private int minuteThreshold = 2; //-- Default value
+    private int logTimeAllowance = 2; //-- Default value
     private String mode;
-
     private String userMCCNo;
+    private String userRole;
     private MCCPlaceHolderApi mccPlaceHolderApi;
-
-//    private Handler mHandler;
-//    private Runnable mRunnable;
-//    private int mInterval = 300; // milliseconds
-//    private boolean initialState = true;
+    private Menu myMenu;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        handler = new Handler();
+        Handler handler = new Handler();
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
 
         if (nfcAdapter != null)
@@ -128,7 +122,9 @@ public class MainActivity extends AppCompatActivity {
 
         textViewGreetings = findViewById(R.id.txt_greetings);
         textViewBlock = findViewById(R.id.block);
+        textViewRiderCount = findViewById(R.id.tvPassengerCount);
 
+        GetPreference();
         showLoginAlert(this);
 
         //-- Get unique device ID
@@ -158,23 +154,12 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     this.CloseMainActivity();
                 }
-
-                return;
             }
         }
     }
 
     @Override
     protected void onResume() {
-//        handler.postDelayed( runnable = new Runnable() {
-//            public void run() {
-//                clearMessage();
-//                handler.postDelayed(runnable, delay);
-//            }
-//        }, delay);
-//        btnSyncUserList = findViewById(R.id.btn_sync_user_list);
-//        btnUploadRidersLogs = findViewById(R.id.btn_upload_data);
-
         super.onResume();
     }
 
@@ -184,11 +169,6 @@ public class MainActivity extends AppCompatActivity {
 
         if (isNFCSupported)
             setupForegroundDispatch(this, nfcAdapter);
-
-//        if (!loggedIn) {
-//            showLoginAlert(this);
-//            //OpenLoginActivityDialog();
-//        }
     }
 
     @Override
@@ -226,7 +206,19 @@ public class MainActivity extends AppCompatActivity {
     public void VerifyUser(String mccno, String access) {
         if (dbHelper.isValidLogin(mccno, access)) {
             loggedIn = true; //-- Flag for user login status
+            userRole = dbHelper.GetUserRole(mccno);
             this.loginAlert.dismiss();
+
+            if (userRole.contains("admin")) {
+                textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_gray));
+                textViewGreetings.setTextColor(getResources().getColor(R.color.colorBlue));
+                textViewGreetings.setText(R.string.admin_mode);
+            }
+
+            //-- Setup menu depending on the user login role
+            setupMenu();
+
+            textViewRiderCount.setText("Total Passengers: " + String.valueOf(dbHelper.GetTransactionCount()));
         }
         else Toast.makeText(this, "Invalid user", Toast.LENGTH_LONG).show();
     }
@@ -235,11 +227,6 @@ public class MainActivity extends AppCompatActivity {
         finish();
     }
 
-//    public void OpenLoginActivityDialog() {
-//        loginActivity = new LoginActivity();
-//        loginActivity.show(getSupportFragmentManager(), "Login");
-//    }
-
     private void handleIntent(Intent intent) {
         String action = intent.getAction();
 
@@ -247,44 +234,12 @@ public class MainActivity extends AppCompatActivity {
 
         if (NfcAdapter.ACTION_TAG_DISCOVERED.equals(action)) {
             //Toast.makeText(this, "ACTION_TECH_DISCOVERED", Toast.LENGTH_SHORT).show();
-            tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+            Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
 
             if (tag != null) {
                 //clearMessage();
                 readMifareClassic(tag);
             }
-
-//            if (tag == null) {
-//                textViewInfo.setText("tag == null");
-//            }
-//            else {
-//                String tagInfo = tag.toString() + "\n";
-//
-//                tagInfo += "\nTag Id: \n";
-//                byte[] tagId = tag.getId();
-//                tagInfo += "length = " + tagId.length +"\n";
-//
-//                for(int i=0; i<tagId.length; i++){
-//                    tagInfo += String.format("%02X", tagId[i] & 0xff) + " ";
-//                }
-//
-//                tagInfo += "\n";
-//
-//                String[] techList = tag.getTechList();
-//                tagInfo += "\nTech List\n";
-//                tagInfo += "length = " + techList.length +"\n";
-//
-//                for(int i=0; i<techList.length; i++) {
-//                    tagInfo += techList[i] + "\n ";
-//                }
-//
-//                textViewInfo.setText(tagInfo);
-//
-//                //Only android.nfc.tech.MifareClassic specified in nfc_tech_filter.xml,
-//                //so must be MifareClassic
-//
-                //nfcAdapter.ignore(tag, 1000, NfcAdapter.OnTagRemovedListener, null);
-//            }
         }
         else {
             Toast.makeText(this, "onResume() : " + action, Toast.LENGTH_SHORT).show();
@@ -292,52 +247,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void readMifareClassic(Tag tag) {
-        mifareClassicTag = MifareClassic.get(tag);
-
-//        String typeInfoString = "--- MifareClassic tag ---\n";
-//        int type = mifareClassicTag.getType();
-//        switch(type){
-//            case MifareClassic.TYPE_PLUS:
-//                typeInfoString += "MifareClassic.TYPE_PLUS\n";
-//                break;
-//            case MifareClassic.TYPE_PRO:
-//                typeInfoString += "MifareClassic.TYPE_PRO\n";
-//                break;
-//            case MifareClassic.TYPE_CLASSIC:
-//                typeInfoString += "MifareClassic.TYPE_CLASSIC\n";
-//                break;
-//            case MifareClassic.TYPE_UNKNOWN:
-//                typeInfoString += "MifareClassic.TYPE_UNKNOWN\n";
-//                break;
-//            default:
-//                typeInfoString += "unknown...!\n";
-//        }
-//
-//        int size = mifareClassicTag.getSize();
-//        switch(size){
-//            case MifareClassic.SIZE_1K:
-//                typeInfoString += "MifareClassic.SIZE_1K\n";
-//                break;
-//            case MifareClassic.SIZE_2K:
-//                typeInfoString += "MifareClassic.SIZE_2K\n";
-//                break;
-//            case MifareClassic.SIZE_4K:
-//                typeInfoString += "MifareClassic.SIZE_4K\n";
-//                break;
-//            case MifareClassic.SIZE_MINI:
-//                typeInfoString += "MifareClassic.SIZE_MINI\n";
-//                break;
-//            default:
-//                typeInfoString += "unknown size...!\n";
-//        }
-
-//        int blockCount = mifareClassicTag.getBlockCount();
-//        typeInfoString += "BlockCount \t= " + blockCount + "\n";
-//        int sectorCount = mifareClassicTag.getSectorCount();
-//        typeInfoString += "SectorCount \t= " + sectorCount + "\n";
-//
-//        textViewTagInfo.setText(typeInfoString);
-
+        MifareClassic mifareClassicTag = MifareClassic.get(tag);
         new ReadMifareClassicTask(mifareClassicTag, this).execute();
     }
 
@@ -367,17 +277,17 @@ public class MainActivity extends AppCompatActivity {
         byte[] access2 = new byte[MifareClassic.BLOCK_SIZE];
         byte[] access3 = new byte[MifareClassic.BLOCK_SIZE];
         byte[] southcoderTag = new byte[MifareClassic.BLOCK_SIZE];
-        private Context mContext;
+        //private Context mContext;
 
         ReadMifareClassicTask(MifareClassic tag, Context context){
             mifareClassic = tag;
             success = false;
-            mContext = context;
+            //mContext = context;
         }
 
         @Override
         protected void onPreExecute() {
-            if (loggedIn)
+            if (loggedIn && !userRole.contains("admin"))
                 textViewBlock.setText("Reading Tag, do not remove...");
         }
 
@@ -387,7 +297,6 @@ public class MainActivity extends AppCompatActivity {
                 mifareClassic.connect();
 
                 success = true;
-                //tagScanned = true;
 
                 //-- Read values from sector 0
                 if (mifareClassic.authenticateSectorWithKeyB(0, accessKeyB)) {
@@ -425,16 +334,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 else success = false;
 
-//                for(int s=0; s<numOfSector; s++) {
-//                    if(mifareClassic.authenticateSectorWithKeyA(s, accessKeyA)) {
-//                        for(int b=0; b<numOfBlockInSector; b++) {
-//                            int blockIndex = (s * numOfBlockInSector) + b;
-//                            buffer[s][b] = mifareClassic.readBlock(blockIndex);
-//                        }
-//                    }
-//                }
-
-                //acknowledgeBeep();
+                acknowledgeBeep();
             } catch (IOException e) {
                 clearMessage();
                 e.printStackTrace();
@@ -453,107 +353,85 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected void onPostExecute(Void aVoid) {
-            //display block
-
             if (success) {
-//                try {
-//                    //-- Serial
-//                    textViewSerialNo.setText("Card Serial: " + hexToAscii(byteToString(cardNo, MifareClassic.BLOCK_SIZE)));
-//                    //-- MCC Number
-//                    textViewMccNo.setText("MCC Number: " + hexToAscii(byteToString(mccNo, MifareClassic.BLOCK_SIZE)));
-//                    //-- First Name
-//                    textViewFName.setText("First Name: " + hexToAscii(byteToString(fName, MifareClassic.BLOCK_SIZE)));
-//                    //-- Middle Name
-//                    textViewMName.setText("Middle Name: " + hexToAscii(byteToString(mName, MifareClassic.BLOCK_SIZE)));
-//                    //-- Last Name
-//                    textViewLName.setText("Last Name: " + hexToAscii(byteToString(lName, MifareClassic.BLOCK_SIZE)));
-//                    //-- Issue Date
-//                    textViewIssueDate.setText("Issue Date: " + hexToAscii(byteToString(issueDate, MifareClassic.BLOCK_SIZE)));
-//                    //-- Expiry Date
-//                    textViewExpiryDate.setText("Expiry Date: " + hexToAscii(byteToString(expiryDate, MifareClassic.BLOCK_SIZE)));
-//
-//                    textViewBlock.setText("");
-//
-////                StringBuilder stringBlock = new StringBuilder();
-////                for(int i=0; i<numOfSector; i++){
-////                    stringBlock.append(i + " :\n");
-////                    for(int j=0; j<numOfBlockInSector; j++){
-////                        for(int k=0; k<MifareClassic.BLOCK_SIZE; k++){
-////                            stringBlock.append(String.format("%02X", buffer[i][j][k] & 0xff) + " ");
-////                        }
-////                        stringBlock.append("\n");
-////                    }
-////                    stringBlock.append("\n");
-////                }
-////                textViewBlock.setText(stringBlock);
-//                } catch (Exception e) {
-//                    e.printStackTrace();
-//                }
                 try {
                     String cardserial = hexToAscii(byteToString(cardSerial, MifareClassic.BLOCK_SIZE));
                     String mccno = hexToAscii(byteToString(mccNo, MifareClassic.BLOCK_SIZE));
                     String name = hexToAscii(byteToString(fName, MifareClassic.BLOCK_SIZE));
-                    String access = hexToAscii(byteToString(access1, MifareClassic.BLOCK_SIZE)) +
-                            hexToAscii(byteToString(access2, MifareClassic.BLOCK_SIZE)) +
-                            hexToAscii(byteToString(access3, MifareClassic.BLOCK_SIZE));
-                    String scTag = hexToAscii(byteToString(southcoderTag, MifareClassic.BLOCK_SIZE)); //-- To know if the card went through our system
+                    String issue = hexToAscii(byteToString(issueDate, MifareClassic.BLOCK_SIZE));
+//                    String access = hexToAscii(byteToString(access1, MifareClassic.BLOCK_SIZE)) +
+//                            hexToAscii(byteToString(access2, MifareClassic.BLOCK_SIZE)) +
+//                            hexToAscii(byteToString(access3, MifareClassic.BLOCK_SIZE));
+//                    String scTag = hexToAscii(byteToString(southcoderTag, MifareClassic.BLOCK_SIZE)); //-- To know if the card went through our system
                     Integer cardtype = Integer.parseInt(mccno.substring(0, 1));
 
                     if (loggedIn) {
                         try {
-                            if (mccno != "") {
-                                textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_blue));
-                                textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
-                                textViewGreetings.setText("Welcome " + name + "!\n Enjoy your free ride.");
+                            if (!userRole.contains("admin")) {
+                                SimpleDateFormat dateFormat = new SimpleDateFormat("MMddyy");
+                                Calendar cal = Calendar.getInstance();
+                                Date issueDate = dateFormat.parse(issue.substring(0, 6));
+                                cal.setTime(issueDate);
+                                cal.add(Calendar.YEAR, 2);
+                                Date expiryDate = cal.getTime();
+                                Date now = new Date();
 
-                                insertEjeepLog(name, userMCCNo, deviceID, cardserial, mccno.substring(0, 7), cardtype, 0);
-                            }
-                            else {
-                                textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_red));
-                                textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
-                                textViewGreetings.setText("Your may have an invalid card.");
-                            }
+                                if (mode == "CARDINFO") {
+                                    tvmccnum.setText(mccno.substring(0, 7));
+                                    if (name.contains(" "))
+                                        tvname.setText(name.substring(0, name.indexOf(' ')));
+                                    else
+                                        tvname.setText(name);
+                                    tvbirthdate.setText(mccno.substring(mccno.length()-6, mccno.length()));
+                                    tvissuedate.setText(issue.substring(0, 6));
+                                    tvexpirydate.setText(dateFormat.format(expiryDate));
+                                } else {
+                                    if (mccno != "") {
+                                        textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_blue));
+                                        textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
+                                        textViewGreetings.setText("Welcome " + name + "!\n Enjoy your free ride.");
 
-                            textViewBlock.setText("Reading NFC card successful.");
+                                        insertEjeepLog(name, userMCCNo, deviceID, cardserial, mccno.substring(0, 7), cardtype, 0);
+
+                                        //-- Announce expired card
+                                        if (now.getTime() > expiryDate.getTime()) {
+                                            MediaPlayer mediaPlayer = MediaPlayer.create(getApplicationContext(), R.raw.card_expired_audio);
+                                            mediaPlayer.start();
+                                        }
+                                    }
+                                    else {
+                                        textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_red));
+                                        textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
+                                        textViewGreetings.setText(R.string.invalid_card);
+                                    }
+                                }
+                                textViewBlock.setText(R.string.reading_nfc_success);
+                            }
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
-                    }
-                    else {
-                        //-- Check if user have access to the app
+                    } else {
                         try {
-                            if (mode == "UPLOAD") {
-                                Users user = dbHelper.getUser(mccno.substring(0, 7), "upload");
-
-                                if (user != null)
-                                    UploadRiderLogs();
-                                else
-                                    status.setText("User not allowed to execute task.");
-
-                                //UploadRiderLogs();
-                                mode = "";
-                            } else if (mode == "VERIFY") {
-                                VerifyDevice();
-                                mode = "";
-                            }
-                            else {
+                            if (doesDatabaseExist(getApplicationContext(), "MCC.db")) {
                                 userMCCNo = mccno.substring(0, 7);
                                 VerifyUser(userMCCNo, "ejeep");
                             }
                         } catch (Exception ex) {
                             ex.printStackTrace();
-                            Toast.makeText(mContext, "Invalid User or Card", Toast.LENGTH_LONG).show();
+                            Toast.makeText(getApplicationContext(), "Invalid User or Card", Toast.LENGTH_LONG).show();
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_red));
-                    textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
-                    textViewGreetings.setText("Your may have an invalid card.");
+                    if (!userRole.contains("admin")) {
+                        e.printStackTrace();
+                        textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_red));
+                        textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
+                        textViewGreetings.setText("Your may have an invalid card.");
+                    }
                 }
             }
             else {
-                if (loggedIn) {
+                if (loggedIn && !userRole.contains("admin")) {
                     textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_red));
                     textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
                     textViewGreetings.setText("Unable to read your card. Please try again.");
@@ -561,6 +439,45 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        myMenu = menu;
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        switch (id) {
+            case R.id.action_sync_user_list:
+                SyncUserList();
+                break;
+            case R.id.action_card_info:
+                mode = "CARDINFO";
+                ShowCardInfo(this);
+                break;
+            case R.id.action_upload_logs:
+                UploadTransactionLogs();
+                break;
+            case R.id.action_log_allowance:
+                showTimeAllowance(this);
+                String selItem = logTimeAllowance + " MINUTES";
+                spinnerTimeAllowance.setSelection(getIndex(spinnerTimeAllowance, selItem));
+                break;
+            case R.id.action_logout:
+                loggedIn = false;
+                loginAlertShown = false;
+                clearMessage();
+                showLoginAlert(this);
+                status.setText("Device ID: " + deviceID);
+                break;
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 
     public static void setupForegroundDispatch(final Activity activity, NfcAdapter adapter) {
@@ -575,6 +492,25 @@ public class MainActivity extends AppCompatActivity {
         adapter.disableForegroundDispatch(activity);
     }
 
+    private void setupMenu() {
+        for (int i=0; i<myMenu.size(); i++) {
+            if (!userRole.contains("admin")) {
+                if (myMenu.getItem(i).getItemId() == R.id.action_upload_logs)
+                    myMenu.getItem(i).setVisible(false);
+            }
+        }
+    }
+
+    private int getIndex(Spinner spinner, String myString){
+        for (int i=0;i<spinner.getCount();i++){
+            if (spinner.getItemAtPosition(i).toString().equalsIgnoreCase(myString)){
+                return i;
+            }
+        }
+
+        return 0;
+    }
+
     private void insertEjeepLog(String name, String userid, String deviceid, String cardserial, String mccno, Integer cardtype, Integer isexpired) {
         //-- Check if log is exceeds time threshold before inserting
         EjeepTransaction ejeepTransaction = dbHelper.getEjeepTransaction(mccno);
@@ -583,16 +519,22 @@ public class MainActivity extends AppCompatActivity {
         String logid = "ejeep" + currentDateTime;
 
         if (ejeepTransaction != null) {
-            Integer timeThreshold = 1000 * 60 * minuteThreshold; //--2 minutes
+            Integer timeThreshold = 1000 * 60 * logTimeAllowance; //--2 minutes
 
-            if (Math.abs(System.currentTimeMillis() - Timestamp.valueOf(ejeepTransaction.getTransactionDate()).getTime()) > timeThreshold)
-                dbHelper.insertEjeepTransaction(logid, userid, deviceid, cardserial, mccno, cardtype, isexpired);
+            if (Math.abs(System.currentTimeMillis() - Timestamp.valueOf(ejeepTransaction.getTransactionDate()).getTime()) > timeThreshold) {
+                if (dbHelper.insertEjeepTransaction(logid, userid, deviceid, cardserial, mccno, cardtype, isexpired) >= 0) {
+                    textViewRiderCount.setText("Total Passengers: " + dbHelper.GetTransactionCount());
+                }
+            }
             else {
                 textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_blue));
                 textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
                 textViewGreetings.setText("Hi " + name + "! You have already tapped your card.");
             }
-        } else dbHelper.insertEjeepTransaction(logid, userid, deviceid, cardserial, mccno, cardtype, isexpired);
+        } else {
+            dbHelper.insertEjeepTransaction(logid, userid, deviceid, cardserial, mccno, cardtype, isexpired);
+            textViewRiderCount.setText("Total Passengers: " + dbHelper.GetTransactionCount());
+        }
     }
 
     private void showNFCSettings() {
@@ -651,12 +593,62 @@ public class MainActivity extends AppCompatActivity {
         toneG.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 500);
     }
 
+    private void showTimeAllowance(Activity activity) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+
+        LayoutInflater inflater = activity.getLayoutInflater();
+        View vwSettings = inflater.inflate(R.layout.activity_settings, null);
+
+        builder.setView(vwSettings)
+                .setCancelable(false)
+                .setNegativeButton("Ok", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        //CloseMainActivity();
+                    }
+                });
+
+        AlertDialog settingsAlert = builder.create();
+        settingsAlert.show();
+        spinnerTimeAllowance = vwSettings.findViewById(R.id.spinner_time_allowance);
+        textViewLogTimeLabel = vwSettings.findViewById(R.id.tvLogTimeAllowanceLabel);
+
+        //-- Set values for log time allowance spinner
+        ArrayList<String> arrTimeAllowanceList = new ArrayList<>();
+        arrTimeAllowanceList.add("2 MINUTES");
+        arrTimeAllowanceList.add("3 MINUTES");
+        arrTimeAllowanceList.add("4 MINUTES");
+        arrTimeAllowanceList.add("5 MINUTES");
+        arrTimeAllowanceList.add("6 MINUTES");
+        arrTimeAllowanceList.add("7 MINUTES");
+        arrTimeAllowanceList.add("8 MINUTES");
+        arrTimeAllowanceList.add("9 MINUTES");
+        arrTimeAllowanceList.add("10 MINUTES");
+
+        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(vwSettings.getContext(), R.layout.support_simple_spinner_dropdown_item, arrTimeAllowanceList);
+        arrayAdapter.setDropDownViewResource(R.layout.support_simple_spinner_dropdown_item);
+        spinnerTimeAllowance.setAdapter(arrayAdapter);
+
+        spinnerTimeAllowance.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String timeAllowance = parent.getItemAtPosition(position).toString();
+                SetTimeAllowance(timeAllowance);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+    }
+
     private void showLoginAlert(Activity activity) {
         if (!loginAlertShown) {
             AlertDialog.Builder builder = new AlertDialog.Builder(activity);
 
             LayoutInflater inflater = activity.getLayoutInflater();
-            vwLogin = inflater.inflate(R.layout.activity_login, null);
+            View vwLogin = inflater.inflate(R.layout.activity_login, null);
 
             builder.setView(vwLogin)
                     .setTitle("EJRF Login")
@@ -667,145 +659,102 @@ public class MainActivity extends AppCompatActivity {
                             CloseMainActivity();
                         }
                     });
-//                    .setPositiveButton("Login", new DialogInterface.OnClickListener() {
-//                        @Override
-//                        public void onClick(DialogInterface dialogInterface, int i) {
-//
-//                        }
-//                    });
 
             loginAlert = builder.create();
+            //loginAlert.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
             loginAlert.show();
             loginAlertShown = true;
 
             btnVerifyDevice = vwLogin.findViewById(R.id.btn_verify_device);
             btnSyncUserList = vwLogin.findViewById(R.id.btn_sync_user_list);
-            btnUploadRidersLogs = vwLogin.findViewById(R.id.btn_upload_data);
-            spinnerTimeAllowance = vwLogin.findViewById(R.id.spinner_time_allowance);
             status = vwLogin.findViewById(R.id.tvStatus);
-            textViewLogTimeLabel = vwLogin.findViewById(R.id.tvLogTimeAllowanceLabel);
-
-            ArrayList<String> arrTimeAllowanceList = new ArrayList<>();
-            arrTimeAllowanceList.add("2 MINUTES");
-            arrTimeAllowanceList.add("3 MINUTES");
-            arrTimeAllowanceList.add("4 MINUTES");
-            arrTimeAllowanceList.add("5 MINUTES");
-            arrTimeAllowanceList.add("6 MINUTES");
-            arrTimeAllowanceList.add("7 MINUTES");
-
-            ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(vwLogin.getContext(), R.layout.support_simple_spinner_dropdown_item, arrTimeAllowanceList);
-            arrayAdapter.setDropDownViewResource(R.layout.support_simple_spinner_dropdown_item);
-            spinnerTimeAllowance.setAdapter(arrayAdapter);
-
-            spinnerTimeAllowance.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-                @Override
-                public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                    String timeAllowance = parent.getItemAtPosition(position).toString();
-                    SetTimeAllowance(timeAllowance);
-                    //Toast.makeText(parent.getContext(), "Selected: " + timeAllowance, Toast.LENGTH_LONG).show();
-                }
-
-                @Override
-                public void onNothingSelected(AdapterView<?> parent) {
-
-                }
-            });
 
             if (!doesDatabaseExist(this, "MCC.db")) {
+                btnVerifyDevice.setVisibility(View.VISIBLE);
                 btnSyncUserList.setVisibility(View.INVISIBLE);
-                btnUploadRidersLogs.setVisibility(View.INVISIBLE);
-                textViewLogTimeLabel.setVisibility(View.INVISIBLE);
-                spinnerTimeAllowance.setVisibility(View.INVISIBLE);
             } else {
                 btnVerifyDevice.setVisibility(View.INVISIBLE);
                 btnSyncUserList.setVisibility(View.VISIBLE);
-                btnUploadRidersLogs.setVisibility(View.VISIBLE);
-                textViewLogTimeLabel.setVisibility(View.VISIBLE);
-                spinnerTimeAllowance.setVisibility(View.VISIBLE);
             }
-
-//            // Initialize the Handler
-//            mHandler = new Handler();
 
             btnVerifyDevice.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    mode = "VERIFY";
-                    status.setText("To Verify, Please tap your card to continue.");
+                    VerifyDevice();
                 }
             });
 
             btnSyncUserList.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    //mode = "SYNC";
                     SyncUserList();
-                }
-            });
-
-            btnUploadRidersLogs.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    mode = "UPLOAD";
-                    status.setText("To Upload, Please tap your card to continue.");
-//                    status.setAnimation(AnimationUtils.loadAnimation(btnUploadRidersLogs.getContext(), R.anim.textblink));
-//                    UploadRiderLogs(retrofit);
-
-//                    mRunnable = new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            doBlink();
-//                        }
-//                    };
-//
-//                    mHandler.postDelayed(mRunnable, mInterval);
                 }
             });
         }
     }
 
-//    protected void doBlink(){
-//        if(initialState){
-//            // Reverse the boolean
-//            initialState = false;
-//            // Set the TextView color to red
-//            status.setTextColor(Color.WHITE);
-//        } else {
-//            // Reverse the boolean
-//            initialState = true;
-//            // Change the TextView color to initial State
-//            status.setTextColor(Color.BLUE);
-//        }
-//
-//        // Schedule the task
-//        mHandler.postDelayed(mRunnable,mInterval);
-//    }
+    private void ShowCardInfo(Activity activity) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+
+        LayoutInflater inflater = activity.getLayoutInflater();
+        View vwCardInfo = inflater.inflate(R.layout.activity_card_info, null);
+
+        builder.setView(vwCardInfo)
+                .setCancelable(false)
+                .setNegativeButton("Ok", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        mode = "";
+                    }
+                });
+
+        AlertDialog cardinfoAlert = builder.create();
+        //cardinfoAlert.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        cardinfoAlert.show();
+
+        tvmccnum = vwCardInfo.findViewById(R.id.tvMCCNum);
+        tvname = vwCardInfo.findViewById(R.id.tvName);
+        tvbirthdate = vwCardInfo.findViewById(R.id.tvBirthdate);
+        tvissuedate = vwCardInfo.findViewById(R.id.tvIssueDate);
+        tvexpirydate = vwCardInfo.findViewById(R.id.tvExpiryDate);
+    }
 
     private void SetTimeAllowance(String itemSelected) {
         switch (itemSelected) {
             case "2 MINUTES":
-                minuteThreshold = 2;
+                logTimeAllowance = 2;
                 break;
             case "3 MINUTES":
-                minuteThreshold = 2;
+                logTimeAllowance = 3;
                 break;
             case "4 MINUTES":
-                minuteThreshold = 2;
+                logTimeAllowance = 4;
                 break;
             case "5 MINUTES":
-                minuteThreshold = 2;
+                logTimeAllowance = 5;
                 break;
             case "6 MINUTES":
-                minuteThreshold = 2;
+                logTimeAllowance = 6;
                 break;
             case "7 MINUTES":
-                minuteThreshold = 2;
+                logTimeAllowance = 7;
+                break;
+            case "8 MINUTES":
+                logTimeAllowance = 8;
+                break;
+            case "9 MINUTES":
+                logTimeAllowance = 9;
+                break;
+            case "10 MINUTES":
+                logTimeAllowance = 10;
                 break;
         }
+
+        SavePreference();
     }
 
     private void VerifyDevice() {
-        final ProgressDialog dialogVerify = new ProgressDialog(btnVerifyDevice.getContext());
+        final ProgressDialog dialogVerify = new ProgressDialog(loginAlert.getContext());
 
         if (IsConnectedToTheInternet()) {
             status.setText("");
@@ -819,24 +768,26 @@ public class MainActivity extends AppCompatActivity {
             call.enqueue(new Callback<DeviceApiResponse>() {
                 @Override
                 public void onResponse(Call<DeviceApiResponse> call, Response<DeviceApiResponse> response) {
+                    DeviceApiResponse resp;
+
                     if (!response.isSuccessful()) {
-                        Toast.makeText(btnSyncUserList.getContext(), "Code: " + response.code(), Toast.LENGTH_LONG).show();
+                        //Toast.makeText(loginAlert.getContext(), "Code: " + response.code(), Toast.LENGTH_LONG).show();
+                        status.setTextColor(Color.RED);
+                        status.setText("This device is not allowed to use the app.");
                         dialogVerify.cancel();
                         return;
                     }
 
-                    //-- ToDo: Check the route reply
-                    DeviceApiResponse resp = response.body();
+                    resp = response.body();
 
                     if ("Success".equals(resp.message)) {
-                        btnVerifyDevice.setVisibility(View.INVISIBLE);
-                        btnSyncUserList.setVisibility(View.VISIBLE);
-                        btnUploadRidersLogs.setVisibility(View.VISIBLE);
-                        textViewLogTimeLabel.setVisibility(View.VISIBLE);
-                        spinnerTimeAllowance.setVisibility(View.VISIBLE);
-
-                        if (ShowDeviceID())
+                        if (ShowDeviceID()) {
                             InitDB();
+                            btnVerifyDevice.setVisibility(View.INVISIBLE);
+                            btnSyncUserList.setVisibility(View.VISIBLE);
+                            SyncUserList();
+                        }
+
                     } else {
                         status.setText("This device is not allowed to use the app.");
                     }
@@ -847,18 +798,16 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onFailure(Call<DeviceApiResponse> call, Throwable t) {
                     //status.setText(t.getMessage());
-                    Toast.makeText(btnSyncUserList.getContext(), t.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(loginAlert.getContext(), t.getMessage(), Toast.LENGTH_LONG).show();
                     dialogVerify.cancel();
                 }
             });
-        }
+        } else Toast.makeText(getApplicationContext(), "Please connect to the internet to execute this action.", Toast.LENGTH_LONG).show();
     }
-
     private void SyncUserList() {
-        final ProgressDialog dialogSynching = new ProgressDialog(btnSyncUserList.getContext());
+        final ProgressDialog dialogSynching = new ProgressDialog(this);
 
         if (IsConnectedToTheInternet()) {
-            status.setText("");
             dialogSynching.setTitle("User List");
             dialogSynching.setMessage("Synching. Please wait...");
             dialogSynching.setCancelable(false);
@@ -869,7 +818,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onResponse(Call<UsersApiResponse> call, Response<UsersApiResponse> response) {
                     if (!response.isSuccessful()) {
-                        Toast.makeText(btnSyncUserList.getContext(), "Code: " + response.code(), Toast.LENGTH_LONG).show();
+                        Toast.makeText(getApplicationContext(), "Code: " + response.code(), Toast.LENGTH_LONG).show();
                         dialogSynching.cancel();
                         return;
                     }
@@ -887,8 +836,8 @@ public class MainActivity extends AppCompatActivity {
                             dbHelper.insertUser(id, mccno, job);
                         }
 
-                        status.setText("User list successfully synced!");
-                        Toast.makeText(btnSyncUserList.getContext(), "User List Synced", Toast.LENGTH_LONG).show();
+//                        status.setText("User list successfully synced!");
+                        Toast.makeText(getApplicationContext(), "User List Synced", Toast.LENGTH_LONG).show();
                     } else {
                         status.setText("User list not synced! Please try again.");
                     }
@@ -898,21 +847,19 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onFailure(Call<UsersApiResponse> call, Throwable t) {
-                    status.setText(t.getMessage());
+                    //status.setText(t.getMessage());
+                    Toast.makeText(getApplicationContext(), t.getMessage(), Toast.LENGTH_LONG).show();
                     dialogSynching.cancel();
                 }
             });
-        }
-        else
-            Toast.makeText(btnSyncUserList.getContext(), "You need internet to Sync User list.", Toast.LENGTH_LONG).show();
+        } else Toast.makeText(getApplicationContext(), "Please connect to the internet to execute this action.", Toast.LENGTH_LONG).show();
     }
 
-    private void UploadRiderLogs() {
-        final ProgressDialog dialogUploading = new ProgressDialog(btnSyncUserList.getContext());
+    private void UploadTransactionLogs() {
+        final ProgressDialog dialogUploading = new ProgressDialog(this);
 
         if (IsConnectedToTheInternet()) {
-            status.setText("");
-            dialogUploading.setTitle("Ejeep Logs");
+            dialogUploading.setTitle("Ejeep Transactions");
             dialogUploading.setMessage("Uploading. Please wait...");
             dialogUploading.setCancelable(false);
             dialogUploading.show();
@@ -924,7 +871,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onResponse(Call<EjeepTransactions> call, Response<EjeepTransactions> response) {
                     if (!response.isSuccessful()) {
-                        Toast.makeText(btnSyncUserList.getContext(), "Code: " + response.code(), Toast.LENGTH_LONG).show();
+                        Toast.makeText(getApplicationContext(), "Code: " + response.code(), Toast.LENGTH_LONG).show();
                         dialogUploading.cancel();
                         return;
                     }
@@ -932,13 +879,14 @@ public class MainActivity extends AppCompatActivity {
                     EjeepTransactions resp = response.body();
 
                     if (response.code() == 201) { //--successful
+                        int totalTransactions = dbHelper.GetTransactionCount();
+
                         //-- Remove uploaded records
                         dbHelper.deleteEjeepAll();
-
-                        status.setText("Ejeep logs was successfully uploaded!");
-                        Toast.makeText(btnSyncUserList.getContext(), "Ejeep transactions uploaded", Toast.LENGTH_LONG).show();
+                        textViewRiderCount.setText("Total Passengers: 0");
+                        Toast.makeText(getApplicationContext(), totalTransactions + " Ejeep transactions uploaded", Toast.LENGTH_LONG).show();
                     } else {
-                        status.setText("Ejeep logs uploaded failed!");
+                        Toast.makeText(getApplicationContext(), "Ejeep transactions upload failed!", Toast.LENGTH_LONG).show();
                     }
 
                     dialogUploading.cancel();
@@ -946,25 +894,12 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onFailure(Call<EjeepTransactions> call, Throwable t) {
-                    status.setText(t.getMessage());
+
                     dialogUploading.cancel();
                 }
             });
-
-            dialogUploading.cancel();
-            Toast.makeText(btnUploadRidersLogs.getContext(), "Upload complete", Toast.LENGTH_LONG).show();
-        } else Toast.makeText(btnSyncUserList.getContext(), "You need internet to Sync User list.", Toast.LENGTH_LONG).show();
+        } else Toast.makeText(getApplicationContext(), "Please connect to the internet to execute this action.", Toast.LENGTH_LONG).show();
     }
-
-//    private void checkIfCardIsStillInRange() {
-//        timerObj = new Timer();
-//        timerTaskObj = new TimerTask() {
-//            public void run() {
-//                readMifareClassic(tag);
-//            }
-//        };
-//        timerObj.schedule(timerTaskObj, 0, 1000);
-//    }
 
     private void clearMessage() {
         textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv));
@@ -988,70 +923,21 @@ public class MainActivity extends AppCompatActivity {
         return dbFile.exists();
     }
 
-//    private class JsonTask extends AsyncTask<String, String, String> {
-//
-//        protected void onPreExecute() {
-//            super.onPreExecute();
-//
-//            pdialog = new ProgressDialog(MainActivity.this);
-//            pdialog.setMessage("Syncing User list please wait...");
-//            pdialog.setCancelable(false);
-//            pdialog.show();
-//        }
-//
-//        protected String doInBackground(String... params) {
-//            HttpURLConnection connection = null;
-//            BufferedReader reader = null;
-//
-//            try {
-//                URL url = new URL(params[0]);
-//                connection = (HttpURLConnection) url.openConnection();
-//                connection.connect();
-//
-//                InputStream stream = connection.getInputStream();
-//
-//                reader = new BufferedReader(new InputStreamReader(stream));
-//
-//                StringBuffer buffer = new StringBuffer();
-//                String line = "";
-//
-//                while ((line = reader.readLine()) != null) {
-//                    buffer.append(line+"\n");
-//                    Log.d("Response: ", "> " + line);   //here u ll get whole response...... :-)
-//                }
-//
-//                Gson jsonData = new Gson();
-//
-//                return jsonData.toJson(buffer.toString());
-//
-//            } catch (MalformedURLException e) {
-//                e.printStackTrace();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            } finally {
-//                if (connection != null) {
-//                    connection.disconnect();
-//                }
-//                try {
-//                    if (reader != null) {
-//                        reader.close();
-//                    }
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//            return null;
-//        }
-//
-//        @Override
-//        protected void onPostExecute(String result) {
-//            super.onPostExecute(result);
-//            if (pdialog.isShowing()){
-//                pdialog.dismiss();
-//            }
-//
-//            //txtJson.setText(result);
-//            //-- ToDo: Save result in table
-//        }
+    private void SavePreference() {
+        SharedPreferences settings = getSharedPreferences("ejeepPrefs", 0);
+        SharedPreferences.Editor editor = settings.edit();
+        editor.putInt("log_time_allowance", logTimeAllowance);
+        editor.commit();
+    }
+
+    private void GetPreference() {
+        SharedPreferences settings = getSharedPreferences("ejeepPrefs", 0);
+        logTimeAllowance = settings.getInt("log_time_allowance", 2);
+    }
+
+//    private void displayBetweenDate(DateTime dateToday, DateTime lastDonateDate){
+//        Days _days = Days.daysBetween(lastDonateDate,dateToday);
+//        int _m = new Period(lastDonateDate,dateToday).getMonths();
+//        //Log.i(PROCESS_MAIN,"Months: " + _m);
 //    }
 }
