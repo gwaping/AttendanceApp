@@ -30,7 +30,7 @@
         android:textColor="#ffff"
         android:textSize="17sp"
         android:text="@string/verify_device" />
-
+    <!--
     <Button
         android:id="@+id/btn_sync_user_list"
         android:layout_width="match_parent"
@@ -46,6 +46,7 @@
         android:textColor="#ffff"
         android:textSize="17sp"
         android:text="@string/sync_user_list" />
+        -->
 
     <TextView
         android:id="@+id/tvStatus"

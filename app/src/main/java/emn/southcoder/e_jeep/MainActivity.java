@@ -357,7 +357,9 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     String cardserial = hexToAscii(byteToString(cardSerial, MifareClassic.BLOCK_SIZE));
                     String mccno = hexToAscii(byteToString(mccNo, MifareClassic.BLOCK_SIZE));
-                    String name = hexToAscii(byteToString(fName, MifareClassic.BLOCK_SIZE));
+                    String name1 = hexToAscii(byteToString(fName, MifareClassic.BLOCK_SIZE));
+                    String name2 = hexToAscii(byteToString(mName, MifareClassic.BLOCK_SIZE));
+                    String name3 = hexToAscii(byteToString(lName, MifareClassic.BLOCK_SIZE));
                     String issue = hexToAscii(byteToString(issueDate, MifareClassic.BLOCK_SIZE));
 //                    String access = hexToAscii(byteToString(access1, MifareClassic.BLOCK_SIZE)) +
 //                            hexToAscii(byteToString(access2, MifareClassic.BLOCK_SIZE)) +
@@ -378,10 +380,7 @@ public class MainActivity extends AppCompatActivity {
 
                                 if (mode == "CARDINFO") {
                                     tvmccnum.setText(mccno.substring(0, 7));
-                                    if (name.contains(" "))
-                                        tvname.setText(name.substring(0, name.indexOf(' ')));
-                                    else
-                                        tvname.setText(name);
+                                    tvname.setText(name1 + name2 + name3);
                                     tvbirthdate.setText(mccno.substring(mccno.length()-6, mccno.length()));
                                     tvissuedate.setText(issue.substring(0, 6));
                                     tvexpirydate.setText(dateFormat.format(expiryDate));
@@ -389,9 +388,16 @@ public class MainActivity extends AppCompatActivity {
                                     if (mccno != "") {
                                         textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_blue));
                                         textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
-                                        textViewGreetings.setText("Welcome " + name + "!\n Enjoy your free ride.");
 
-                                        insertEjeepLog(name, userMCCNo, deviceID, cardserial, mccno.substring(0, 7), cardtype, 0);
+                                        String shortName;
+                                        if (name1.contains(" "))
+                                            shortName = name1.substring(0, name1.indexOf(' '));
+                                        else
+                                            shortName = name1;
+
+                                        textViewGreetings.setText("Welcome " + shortName + "!\n Enjoy your free ride.");
+
+                                        insertEjeepLog(name1, userMCCNo, deviceID, cardserial, mccno.substring(0, 7), cardtype, 0);
 
                                         //-- Announce expired card
                                         if (now.getTime() > expiryDate.getTime()) {
@@ -466,7 +472,7 @@ public class MainActivity extends AppCompatActivity {
             case R.id.action_log_allowance:
                 showTimeAllowance(this);
                 String selItem = logTimeAllowance + " MINUTES";
-                spinnerTimeAllowance.setSelection(getIndex(spinnerTimeAllowance, selItem));
+                spinnerTimeAllowance.setSelection(getSpinnerItemIndex(spinnerTimeAllowance, selItem));
                 break;
             case R.id.action_logout:
                 loggedIn = false;
@@ -497,11 +503,13 @@ public class MainActivity extends AppCompatActivity {
             if (!userRole.contains("admin")) {
                 if (myMenu.getItem(i).getItemId() == R.id.action_upload_logs)
                     myMenu.getItem(i).setVisible(false);
+                if (myMenu.getItem(i).getItemId() == R.id.action_sync_user_list)
+                    myMenu.getItem(i).setVisible(false);
             }
         }
     }
 
-    private int getIndex(Spinner spinner, String myString){
+    private int getSpinnerItemIndex(Spinner spinner, String myString){
         for (int i=0;i<spinner.getCount();i++){
             if (spinner.getItemAtPosition(i).toString().equalsIgnoreCase(myString)){
                 return i;
@@ -666,15 +674,15 @@ public class MainActivity extends AppCompatActivity {
             loginAlertShown = true;
 
             btnVerifyDevice = vwLogin.findViewById(R.id.btn_verify_device);
-            btnSyncUserList = vwLogin.findViewById(R.id.btn_sync_user_list);
+            //btnSyncUserList = vwLogin.findViewById(R.id.btn_sync_user_list);
             status = vwLogin.findViewById(R.id.tvStatus);
 
             if (!doesDatabaseExist(this, "MCC.db")) {
                 btnVerifyDevice.setVisibility(View.VISIBLE);
-                btnSyncUserList.setVisibility(View.INVISIBLE);
+                //btnSyncUserList.setVisibility(View.INVISIBLE);
             } else {
                 btnVerifyDevice.setVisibility(View.INVISIBLE);
-                btnSyncUserList.setVisibility(View.VISIBLE);
+                //btnSyncUserList.setVisibility(View.VISIBLE);
             }
 
             btnVerifyDevice.setOnClickListener(new View.OnClickListener() {
@@ -684,12 +692,12 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
 
-            btnSyncUserList.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    SyncUserList();
-                }
-            });
+//            btnSyncUserList.setOnClickListener(new View.OnClickListener() {
+//                @Override
+//                public void onClick(View v) {
+//                    SyncUserList();
+//                }
+//            });
         }
     }
 
@@ -784,7 +792,7 @@ public class MainActivity extends AppCompatActivity {
                         if (ShowDeviceID()) {
                             InitDB();
                             btnVerifyDevice.setVisibility(View.INVISIBLE);
-                            btnSyncUserList.setVisibility(View.VISIBLE);
+                            //btnSyncUserList.setVisibility(View.VISIBLE);
                             SyncUserList();
                         }
 

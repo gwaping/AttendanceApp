@@ -52,21 +52,27 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // get writable database as we want to write data
         SQLiteDatabase db = this.getWritableDatabase();
 
-        ContentValues values = new ContentValues();
-        // `id` and `timestamp` will be inserted automatically.
-        // no need to add them
-        values.put(Users.COLUMN_ID, id);
-        values.put(Users.COLUMN_MCCNUMBER, mccnumber);
-        values.put(Users.COLUMN_JOB, job);
+        try {
+            ContentValues values = new ContentValues();
+            // `id` and `timestamp` will be inserted automatically.
+            // no need to add them
+            values.put(Users.COLUMN_ID, id);
+            values.put(Users.COLUMN_MCCNUMBER, mccnumber);
+            values.put(Users.COLUMN_JOB, job);
 
-        // insert row
-        long ret_id = db.insert(Users.TABLE_NAME, null, values);
+            // insert row
+            long ret_id = db.insert(Users.TABLE_NAME, null, values);
 
-        // close db connection
-        db.close();
+            // return newly inserted row id
+            return ret_id;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            // close db connection
+            db.close();
+        }
 
-        // return newly inserted row id
-        return ret_id;
+        return 0;
     }
 
     public Users getUser(String mccnumber, String access) {
@@ -103,25 +109,31 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // get writable database as we want to write data
         SQLiteDatabase db = this.getWritableDatabase();
 
-        ContentValues values = new ContentValues();
-        // `id` and `timestamp` will be inserted automatically.
-        // no need to add them
-        values.put(EjeepTransaction.COLUMN_ID, transctionid);
-        values.put(EjeepTransaction.COLUMN_USERID, userid);
-        values.put(EjeepTransaction.COLUMN_EFTPOSSERIAL, eftposserial);
-        values.put(EjeepTransaction.COLUMN_CARDSERIAL, cardserial);
-        values.put(EjeepTransaction.COLUMN_MCCNUMBER, mccnumber);
-        values.put(EjeepTransaction.COLUMN_CARDTYPE, cardtype);
-        values.put(EjeepTransaction.COLUMN_ISEXPIRED, isexpired);
+        try {
+            ContentValues values = new ContentValues();
+            // `id` and `timestamp` will be inserted automatically.
+            // no need to add them
+            values.put(EjeepTransaction.COLUMN_ID, transctionid);
+            values.put(EjeepTransaction.COLUMN_USERID, userid);
+            values.put(EjeepTransaction.COLUMN_EFTPOSSERIAL, eftposserial);
+            values.put(EjeepTransaction.COLUMN_CARDSERIAL, cardserial);
+            values.put(EjeepTransaction.COLUMN_MCCNUMBER, mccnumber);
+            values.put(EjeepTransaction.COLUMN_CARDTYPE, cardtype);
+            values.put(EjeepTransaction.COLUMN_ISEXPIRED, isexpired);
 
-        // insert row
-        long ret_id = db.insert(EjeepTransaction.TABLE_NAME, null, values);
+            // insert row
+            long ret_id = db.insert(EjeepTransaction.TABLE_NAME, null, values);
 
-        // close db connection
-        db.close();
+            // return newly inserted row id
+            return ret_id;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } finally {
+            // close db connection
+            db.close();
+        }
 
-        // return newly inserted row id
-        return ret_id;
+        return 0;
     }
 
     public EjeepTransaction getEjeepTransaction(String mccnumber) {
@@ -166,6 +178,42 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         // Select All Query
         String selectQuery = "SELECT  * FROM " + EjeepTransaction.TABLE_NAME + " ORDER BY " + EjeepTransaction.COLUMN_TRANSACTIONDATE + " ASC";
+
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
+            Cursor cursor = db.rawQuery(selectQuery, null);
+
+            // looping through all rows and adding to list
+            if (cursor.moveToFirst()) {
+                do {
+                    EjeepTransaction ejeepTransaction = new EjeepTransaction();
+                    ejeepTransaction.setId(cursor.getString(cursor.getColumnIndex(EjeepTransaction.COLUMN_ID)));
+                    ejeepTransaction.setUserId(cursor.getString(cursor.getColumnIndex(EjeepTransaction.COLUMN_USERID)));
+                    ejeepTransaction.setCardSerial(cursor.getString(cursor.getColumnIndex(EjeepTransaction.COLUMN_CARDSERIAL)));
+                    ejeepTransaction.setMCCNumber(cursor.getString(cursor.getColumnIndex(EjeepTransaction.COLUMN_MCCNUMBER)));
+                    ejeepTransaction.setEftposSerial(cursor.getString(cursor.getColumnIndex(EjeepTransaction.COLUMN_EFTPOSSERIAL)));
+                    ejeepTransaction.setTransactionDate(cursor.getString(cursor.getColumnIndex(EjeepTransaction.COLUMN_TRANSACTIONDATE)));
+                    ejeepTransaction.setCardType(cursor.getInt(cursor.getColumnIndex(EjeepTransaction.COLUMN_CARDTYPE)));
+                    ejeepTransaction.setIsExpired(cursor.getInt(cursor.getColumnIndex(EjeepTransaction.COLUMN_ISEXPIRED)));
+
+                    ejeepTransactions.add(ejeepTransaction);
+                } while (cursor.moveToNext());
+            }
+
+            cursor.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // close db connection
+
+        // return notes list
+        return ejeepTransactions;
+    }
+
+    public ArrayList<EjeepTransaction> getEjeepTransactions(int limitcount) {
+        ArrayList<EjeepTransaction> ejeepTransactions = new ArrayList<>();
+
+        // Select All Query
+        String selectQuery = "SELECT  * FROM " + EjeepTransaction.TABLE_NAME + " ORDER BY " + EjeepTransaction.COLUMN_TRANSACTIONDATE + " ASC LIMIT " + limitcount;
 
         try (SQLiteDatabase db = this.getWritableDatabase()) {
             Cursor cursor = db.rawQuery(selectQuery, null);
@@ -251,8 +299,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    public void deleteEjeepAll() {
+    public void deleteEjeepTransaction(int limitcount) {
+        // get readable database as we are not inserting anything
+        try (SQLiteDatabase db = this.getReadableDatabase()) {
+            String delQuery;
+            delQuery = "DELETE FROM " + EjeepTransaction.TABLE_NAME + " ORDER BY " + EjeepTransaction.COLUMN_TRANSACTIONDATE + " ASC LIMIT " + limitcount;
+            db.execSQL(delQuery);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
+    public void deleteEjeepAll() {
         try (SQLiteDatabase db = this.getWritableDatabase()) {
             db.delete(EjeepTransaction.TABLE_NAME, null, null);
         } catch (SQLException e) {
