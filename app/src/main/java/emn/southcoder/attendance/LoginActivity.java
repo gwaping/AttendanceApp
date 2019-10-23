@@ -1,4 +1,4 @@
-package emn.southcoder.e_jeep;
+package emn.southcoder.attendance;
 
 import android.app.AlertDialog;
 import android.app.Dialog;

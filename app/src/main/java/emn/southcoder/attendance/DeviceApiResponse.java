@@ -1,7 +1,7 @@
-package emn.southcoder.e_jeep;
+package emn.southcoder.attendance;
 
 import com.google.gson.annotations.SerializedName;
-import emn.southcoder.e_jeep.model.Device;
+import emn.southcoder.attendance.model.Device;
 
 public class DeviceApiResponse {
     @SerializedName("message")

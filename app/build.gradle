@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 android {
     compileSdkVersion 28
     defaultConfig {
-        applicationId "emn.southcoder.e_jeep"
+        applicationId "emn.southcoder.attendance"
         minSdkVersion 24
         targetSdkVersion 28
         versionCode 1

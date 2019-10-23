@@ -1,4 +1,4 @@
-package emn.southcoder.e_jeep.model;
+package emn.southcoder.attendance.model;
 
 import com.google.gson.annotations.SerializedName;
 

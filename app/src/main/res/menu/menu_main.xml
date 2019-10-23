@@ -16,6 +16,10 @@
         android:title="@string/action_card_info"
         android:orderInCategory="102"
         app:showAsAction="never"/>
+    <item android:id = "@+id/action_event_info"
+        android:title="@string/action_event_info"
+        android:orderInCategory="102"
+        app:showAsAction="never"/>
     <item android:id = "@+id/action_log_allowance"
         android:title="@string/action_log_allowance"
         android:orderInCategory="102"

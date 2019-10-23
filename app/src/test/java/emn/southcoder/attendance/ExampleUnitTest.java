@@ -1,4 +1,4 @@
-package emn.southcoder.e_jeep;
+package emn.southcoder.attendance;
 
 import org.junit.Test;
 

@@ -1,10 +1,11 @@
-package emn.southcoder.e_jeep.Interface;
+package emn.southcoder.attendance.Interface;
 
 import com.google.gson.JsonObject;
 
-import emn.southcoder.e_jeep.ApiResponse;
-import emn.southcoder.e_jeep.EjeepApiResponse;
-import emn.southcoder.e_jeep.UsersApiResponse;
+import emn.southcoder.attendance.ApiResponse;
+import emn.southcoder.attendance.AttendanceApiResponse;
+import emn.southcoder.attendance.EjeepApiResponse;
+import emn.southcoder.attendance.UsersApiResponse;
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
@@ -26,4 +27,12 @@ public interface ApiRequest {
             "Content-Type: application/json;charset=UTF-8"
     })
     Call<EjeepApiResponse> postEJeepTransactions(@Body JsonObject EJeepTransactions);
+
+    @POST("attendance/bulkcreate")
+    @Headers({
+            "Content-Type: application/json;charset=UTF-8"
+    })
+    Call<AttendanceApiResponse> postAttendances (@Body JsonObject Attendances);
+
+
 }

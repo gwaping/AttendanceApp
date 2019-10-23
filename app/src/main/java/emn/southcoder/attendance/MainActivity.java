@@ -1,4 +1,4 @@
-package emn.southcoder.e_jeep;
+package emn.southcoder.attendance;
 
 import android.Manifest;
 import android.app.Activity;
@@ -27,6 +27,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.telephony.TelephonyManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -47,11 +48,20 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import emn.southcoder.e_jeep.Interface.MCCPlaceHolderApi;
-import emn.southcoder.e_jeep.model.Device;
-import emn.southcoder.e_jeep.model.EjeepTransaction;
-import emn.southcoder.e_jeep.model.EjeepTransactions;
-import emn.southcoder.e_jeep.model.Users;
+
+import emn.southcoder.attendance.DatabaseHelper;
+import emn.southcoder.attendance.DeviceApiResponse;
+import emn.southcoder.attendance.EventsApiResponse;
+import emn.southcoder.attendance.Interface.MCCPlaceHolderApi;
+import emn.southcoder.attendance.R;
+import emn.southcoder.attendance.UsersApiResponse;
+import emn.southcoder.attendance.model.Attendance;
+import emn.southcoder.attendance.model.Attendances;
+import emn.southcoder.attendance.model.Device;
+import emn.southcoder.attendance.model.EjeepTransaction;
+import emn.southcoder.attendance.model.EjeepTransactions;
+import emn.southcoder.attendance.model.Event;
+import emn.southcoder.attendance.model.Users;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
@@ -70,13 +80,16 @@ public class MainActivity extends AppCompatActivity {
     private AlertDialog loginAlert;
     private Animation animBlink;
     private Spinner spinnerTimeAllowance;
-    private Button btnVerifyDevice, btnSyncUserList;
+    private Spinner spinnerEvent;
+
+    private Button btnVerifyDevice, btnSyncUserList, btnUpdateEvents;
     private TextView status;
     private TextView tvmccnum, tvname, tvbirthdate, tvissuedate, tvexpirydate;
     private TelephonyManager tm;
     private DatabaseHelper dbHelper;
     private String deviceID = null;
     private int logTimeAllowance = 2; //-- Default value
+    private String selectedEventName = "";
     private String mode;
     private String userMCCNo;
     private String userRole;
@@ -204,6 +217,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void VerifyUser(String mccno, String access) {
+
+        Log.d("GML Verify User : ", mccno + " " + access);
         if (dbHelper.isValidLogin(mccno, access)) {
             loggedIn = true; //-- Flag for user login status
             userRole = dbHelper.GetUserRole(mccno);
@@ -395,9 +410,13 @@ public class MainActivity extends AppCompatActivity {
                                         else
                                             shortName = name1;
 
-                                        textViewGreetings.setText("Welcome " + shortName + "!\n Enjoy your free ride.");
+                                        // use with Ejeep Transaction
+                                      //  textViewGreetings.setText("Welcome " + shortName + "!\n Enjoy your free ride.");
+                                      //  insertEjeepLog(name1, userMCCNo, deviceID, cardserial, mccno.substring(0, 7), cardtype, 0);
 
-                                        insertEjeepLog(name1, userMCCNo, deviceID, cardserial, mccno.substring(0, 7), cardtype, 0);
+                                         // use with Attendance
+                                          textViewGreetings.setText("Welcome " + shortName + "!\n Enjoy your free ride.");
+                                          insertAttendanceLog(name1,userMCCNo,deviceID,cardserial,mccno.substring(0, 7),"eventcode","eventsession","eventinout", "eventtime");
 
                                         //-- Announce expired card
                                         if (now.getTime() > expiryDate.getTime()) {
@@ -466,8 +485,14 @@ public class MainActivity extends AppCompatActivity {
                 mode = "CARDINFO";
                 ShowCardInfo(this);
                 break;
+            case R.id.action_event_info:
+                showEventSetting(this);
+                String selEvent = "Test event name";
+                spinnerEvent.setSelection(getSpinnerItemIndex(spinnerEvent, selEvent));
+                break;
             case R.id.action_upload_logs:
-                UploadTransactionLogs();
+//                UploadTransactionLogs();
+                  UploadAttendanceLogs();
                 break;
             case R.id.action_log_allowance:
                 showTimeAllowance(this);
@@ -542,6 +567,33 @@ public class MainActivity extends AppCompatActivity {
         } else {
             dbHelper.insertEjeepTransaction(logid, userid, deviceid, cardserial, mccno, cardtype, isexpired);
             textViewRiderCount.setText("Total Passengers: " + dbHelper.GetTransactionCount());
+        }
+    }
+
+    private void insertAttendanceLog(String name, String userid, String deviceid, String cardserial, String mccno, String eventcode, String eventsession, String eventinout, String eventtime) {
+        //-- Check if log is exceeds time threshold before inserting
+        Attendance attendance = dbHelper.getAttendance(mccno);
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+        String currentDateTime = dateFormat.format(new Date()); // Find todays date
+        String logid = "attendance" + currentDateTime;
+
+        if (attendance != null) {
+            Integer timeThreshold = 1000 * 60 * logTimeAllowance; //--2 minutes
+
+            if (Math.abs(System.currentTimeMillis() - Timestamp.valueOf(attendance.getTransactionDate()).getTime()) > timeThreshold) {
+                if (dbHelper.insertAttendance(logid, userid, deviceid, cardserial, mccno, eventcode, eventsession, eventinout, eventtime ) >= 0) {
+                    textViewRiderCount.setText("Total Passengers: " + dbHelper.GetTransactionCount());
+                }
+            }
+            else {
+                textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_blue));
+                textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
+                textViewGreetings.setText("Hi " + name + "! You have already tapped your card.");
+            }
+        } else {
+            dbHelper.insertAttendance(logid, userid, deviceid, cardserial, mccno,  eventcode, eventsession, eventinout, eventtime);
+
+            textViewRiderCount.setText("Total Attendees" + dbHelper.GetAttendeeCount());
         }
     }
 
@@ -685,6 +737,8 @@ public class MainActivity extends AppCompatActivity {
                 //btnSyncUserList.setVisibility(View.VISIBLE);
             }
 
+
+            // click the verify device button
             btnVerifyDevice.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -727,6 +781,67 @@ public class MainActivity extends AppCompatActivity {
         tvexpirydate = vwCardInfo.findViewById(R.id.tvExpiryDate);
     }
 
+    private void showEventSetting(Activity activity) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity);
+
+        LayoutInflater inflater = activity.getLayoutInflater();
+        View vwSettings = inflater.inflate(R.layout.activity_event_settings, null);
+
+        builder.setView(vwSettings)
+                .setCancelable(false)
+                .setNegativeButton("Ok", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        //CloseMainActivity();
+                    }
+                });
+
+        AlertDialog settingsAlert = builder.create();
+        settingsAlert.show();
+
+        spinnerEvent = vwSettings.findViewById(R.id.spinner_event_name);
+
+          // get the events from local database
+          ArrayList<Event> eventList = dbHelper.getAllEvents();
+            ArrayList<String> arrEventList = new ArrayList<>();
+
+            // iterate thru the events and add to arrEventList to add in the form.
+            for (int idx = 0; idx <= eventList.size() - 1; idx++ ) {
+                Event event = eventList.get(idx);
+                Log.d("GML returned Value ", event.getEventName());
+                arrEventList.add(event.getEventName());
+            }
+
+        ArrayAdapter<String> arrayAdapter = new ArrayAdapter<String>(vwSettings.getContext(), R.layout.support_simple_spinner_dropdown_item, arrEventList);
+        arrayAdapter.setDropDownViewResource(R.layout.support_simple_spinner_dropdown_item);
+        spinnerEvent.setAdapter(arrayAdapter);
+
+        spinnerEvent.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                String selectedEvent = parent.getItemAtPosition(position).toString();
+//                SetTimeAllowance(timeAllowance);
+                Log.d("GML selected Event : ", selectedEvent);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+
+        btnUpdateEvents = vwSettings.findViewById(R.id.btn_update_events);
+        btnUpdateEvents.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                // update the events on the database
+                SyncEventList();
+            }
+        });
+
+    }
+
     private void SetTimeAllowance(String itemSelected) {
         switch (itemSelected) {
             case "2 MINUTES":
@@ -761,6 +876,8 @@ public class MainActivity extends AppCompatActivity {
         SavePreference();
     }
 
+
+
     private void VerifyDevice() {
         final ProgressDialog dialogVerify = new ProgressDialog(loginAlert.getContext());
 
@@ -793,7 +910,11 @@ public class MainActivity extends AppCompatActivity {
                             InitDB();
                             btnVerifyDevice.setVisibility(View.INVISIBLE);
                             //btnSyncUserList.setVisibility(View.VISIBLE);
-                            SyncUserList();
+
+                             SyncUserList();
+
+                            // Test only
+                            SyncEventList();
                         }
 
                     } else {
@@ -812,6 +933,7 @@ public class MainActivity extends AppCompatActivity {
             });
         } else Toast.makeText(getApplicationContext(), "Please connect to the internet to execute this action.", Toast.LENGTH_LONG).show();
     }
+
     private void SyncUserList() {
         final ProgressDialog dialogSynching = new ProgressDialog(this);
 
@@ -863,6 +985,67 @@ public class MainActivity extends AppCompatActivity {
         } else Toast.makeText(getApplicationContext(), "Please connect to the internet to execute this action.", Toast.LENGTH_LONG).show();
     }
 
+    // Gio
+    private void SyncEventList() {
+        final ProgressDialog dialogSynching = new ProgressDialog(this);
+
+        if (IsConnectedToTheInternet()) {
+            dialogSynching.setTitle("Event List");
+            dialogSynching.setMessage("Synching. Please wait...");
+            dialogSynching.setCancelable(false);
+            dialogSynching.show();
+
+            Call<EventsApiResponse> call = mccPlaceHolderApi.getEvents();
+            call.enqueue(new Callback<EventsApiResponse>() {
+                @Override
+                public void onResponse(Call<EventsApiResponse> call, Response<EventsApiResponse> response) {
+                    if (!response.isSuccessful()) {
+                        Toast.makeText(getApplicationContext(), "Code: " + response.code(), Toast.LENGTH_LONG).show();
+                        dialogSynching.cancel();
+                        return;
+                    }
+
+                    EventsApiResponse resEvents = response.body();
+
+                    Log.d("GML resEvent :", resEvents.toString());
+
+                    //if (users.message == "Success") {
+                    if (!resEvents.obj.isEmpty()) {
+
+                        dbHelper.deleteEventAll();
+
+                        for (Event events : resEvents.obj) {
+                            int id = events.getId();
+                            String eventname = events.getEventName();
+                            String description = events.getDescription();
+                            String date = events.getDate();
+
+                            Log.d("GML before Insert :", eventname + " " + description + " " + date );
+                            dbHelper.insertEvent(id, eventname, description, date);
+                        }
+
+//                        status.setText("User list successfully synced!");
+                        Toast.makeText(getApplicationContext(), "Event List Synced", Toast.LENGTH_LONG).show();
+                    } else {
+                        status.setText("Events list not synced! Please try again.");
+                    }
+
+                    dialogSynching.cancel();
+                }
+
+                @Override
+                public void onFailure(Call<EventsApiResponse> call, Throwable t) {
+                    //status.setText(t.getMessage());
+                    Toast.makeText(getApplicationContext(), t.getMessage(), Toast.LENGTH_LONG).show();
+                    dialogSynching.cancel();
+                }
+            });
+        } else Toast.makeText(getApplicationContext(), "Please connect to the internet to execute this action.", Toast.LENGTH_LONG).show();
+    }
+
+
+    // ---- Gio
+
     private void UploadTransactionLogs() {
         final ProgressDialog dialogUploading = new ProgressDialog(this);
 
@@ -902,6 +1085,54 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onFailure(Call<EjeepTransactions> call, Throwable t) {
+
+                    dialogUploading.cancel();
+                }
+            });
+        } else Toast.makeText(getApplicationContext(), "Please connect to the internet to execute this action.", Toast.LENGTH_LONG).show();
+    }
+
+    private void UploadAttendanceLogs() {
+        final ProgressDialog dialogUploading = new ProgressDialog(this);
+
+        if (IsConnectedToTheInternet()) {
+            dialogUploading.setTitle("Attendance Transactions");
+            dialogUploading.setMessage("Uploading. Please wait...");
+            dialogUploading.setCancelable(false);
+            dialogUploading.show();
+
+            ArrayList<Attendance> AttendanceList = dbHelper.getAllAttendanceLogs();
+            Attendances attendances = new Attendances(AttendanceList);
+            Call<Attendances> attendancesCall = mccPlaceHolderApi.createPost(attendances);
+            Log.d("GML Attendance :", AttendanceList.get(3).getId());
+
+            attendancesCall.enqueue(new Callback<Attendances>() {
+                @Override
+                public void onResponse(Call<Attendances> call, Response<Attendances> response) {
+                    if (!response.isSuccessful()) {
+                        Toast.makeText(getApplicationContext(), "Code: " + response.code(), Toast.LENGTH_LONG).show();
+                        dialogUploading.cancel();
+                        return;
+                    }
+
+                    Attendances resp = response.body();
+
+                    if (response.code() == 201) { //--successful
+                        int totalTransactions = dbHelper.GetAttendaceCount();
+
+                        //-- Remove uploaded records
+                        dbHelper.deleteAttendanceAll();
+                        textViewRiderCount.setText("Total Attendees: 0");
+                        Toast.makeText(getApplicationContext(), totalTransactions + " Attendance transactions uploaded", Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(getApplicationContext(), "Attendance transactions upload failed!", Toast.LENGTH_LONG).show();
+                    }
+
+                    dialogUploading.cancel();
+                }
+
+                @Override
+                public void onFailure(Call<Attendances> call, Throwable t) {
 
                     dialogUploading.cancel();
                 }

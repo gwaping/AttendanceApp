@@ -1,4 +1,4 @@
-package emn.southcoder.e_jeep;
+package emn.southcoder.attendance;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getTargetContext();
 
-        assertEquals("emn.southcoder.e_jeep", appContext.getPackageName());
+        assertEquals("emn.southcoder.attendance", appContext.getPackageName());
     }
 }

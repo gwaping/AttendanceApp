@@ -1,4 +1,4 @@
-package emn.southcoder.e_jeep.model;
+package emn.southcoder.attendance.model;
 
 public class EjeepTransaction {
     public static final String TABLE_NAME = "ejeep";
@@ -37,7 +37,13 @@ public class EjeepTransaction {
 
     public EjeepTransaction () {}
 
-    public EjeepTransaction(String transactionid, String cardSerial, String mCCNumber, String eftposSerial, String transactionDate, int cardType, int isExpired, String userId) {
+    public EjeepTransaction(String transactionid,
+                            String cardSerial,
+                            String mCCNumber,
+                            String eftposSerial,
+                            String transactionDate,
+                            int cardType,
+                            int isExpired, String userId) {
         TransactionId = transactionid;
         CardSerial = cardSerial;
         MCCNumber = mCCNumber;

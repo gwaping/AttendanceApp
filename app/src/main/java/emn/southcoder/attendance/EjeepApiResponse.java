@@ -1,9 +1,8 @@
-package emn.southcoder.e_jeep;
+package emn.southcoder.attendance;
 
 import com.google.gson.annotations.SerializedName;
-
 import java.util.ArrayList;
-import emn.southcoder.e_jeep.model.EjeepTransaction;
+import emn.southcoder.attendance.model.EjeepTransaction;
 
 public class EjeepApiResponse {
     @SerializedName("message")
