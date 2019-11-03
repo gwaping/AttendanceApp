@@ -277,7 +277,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return retVal;
     }
 
-    public int GetAttendaceCount() {
+
+
+    public int GetAttendanceCount() {
         int retVal = 0;
         String selectQuery = "SELECT COUNT(DISTINCT " + Attendance.COLUMN_CARDSERIAL + " ) AS totalTransaction FROM " + Attendance.TABLE_NAME;
 
@@ -299,27 +301,6 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return retVal;
     }
 
-    public int GetAttendeeCount() {
-        int retVal = 0;
-        String selectQuery = "SELECT COUNT(*) AS totalTransaction FROM " + Attendance.TABLE_NAME;
-
-        try (SQLiteDatabase db = this.getWritableDatabase()) {
-            Cursor cursor = db.rawQuery(selectQuery, null);
-
-            if (cursor != null)
-                cursor.moveToFirst();
-
-            retVal = cursor.getInt(cursor.getColumnIndex("totalTransaction"));
-
-            cursor.close();
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        // close db connection
-
-        return retVal;
-    }
 
     public String GetUserRole(String mccNumber) {
         String retVal = "";
@@ -416,7 +397,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    public long insertEvent(Integer id, String eventname, String description, String date) {
+    public long insertEvent(Integer id, String eventname, String description, String date, String numtaps, String threshholdtime1, String threshholdtime2) {
         // get writable database as we want to write data
         SQLiteDatabase db = this.getWritableDatabase();
 
@@ -429,6 +410,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             values.put(Event.COLUMN_EVENTNAME, eventname);
             values.put(Event.COLUMN_DESCRIPTION, description);
             values.put(Event.COLUMN_DATE, date);
+            values.put(Event.COLUMN_NUMTAPS, numtaps);
+            values.put(Event.COLUMN_THRESHOLDTIME1, threshholdtime1);
+            values.put(Event.COLUMN_THRESHOLDTIME2, threshholdtime1);
 
             // insert row
             long ret_id = db.insert(Event.TABLE_NAME, null, values);
@@ -443,6 +427,47 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         }
 
         return 0;
+    }
+
+    public Event getEvent(String eventName) {
+
+        // get readable database as we are not inserting anything
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        try {
+            Cursor cursor = db.query(Event.TABLE_NAME,
+                    new String[]{ Event.COLUMN_ID,
+                                  Event.COLUMN_EVENTNAME,
+                                  Event.COLUMN_DESCRIPTION,
+                                  Event.COLUMN_DATE,
+                                  Event.COLUMN_NUMTAPS,
+                                  Event.COLUMN_THRESHOLDTIME1,
+                                  Event.COLUMN_THRESHOLDTIME2},
+                    Event.COLUMN_EVENTNAME + "=?",
+                    new String[]{eventName}, null, null, Event.COLUMN_DATE + " DESC", null);
+
+            if (cursor != null)
+                cursor.moveToFirst();
+
+            // prepare Event object
+            Event event = new Event(
+                    cursor.getInt(cursor.getColumnIndex(Event.COLUMN_ID)),
+                    cursor.getString(cursor.getColumnIndex(Event.COLUMN_EVENTNAME)),
+                    cursor.getString(cursor.getColumnIndex(Event.COLUMN_DESCRIPTION)),
+                    cursor.getString(cursor.getColumnIndex(Event.COLUMN_DATE)),
+                    cursor.getString(cursor.getColumnIndex(Event.COLUMN_NUMTAPS)),
+                    cursor.getString(cursor.getColumnIndex(Event.COLUMN_THRESHOLDTIME1)),
+                    cursor.getString(cursor.getColumnIndex(Event.COLUMN_THRESHOLDTIME1)));
+
+            // close the db connection
+            cursor.close();
+
+            return event;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return null;
     }
 
     public ArrayList<Event> getAllEvents() {
@@ -462,6 +487,9 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                     event.setEventName(cursor.getString(cursor.getColumnIndex(Event.COLUMN_EVENTNAME)));
                     event.setDescription(cursor.getString(cursor.getColumnIndex(Event.COLUMN_DESCRIPTION)));
                     event.setDate(cursor.getString(cursor.getColumnIndex(Event.COLUMN_DATE)));
+                    event.setNumTaps(cursor.getString(cursor.getColumnIndex(Event.COLUMN_NUMTAPS)));
+                    event.setThreshholdTime1(cursor.getString(cursor.getColumnIndex(Event.COLUMN_THRESHOLDTIME1)));
+                    event.setThreshholdTime2(cursor.getString(cursor.getColumnIndex(Event.COLUMN_THRESHOLDTIME2)));
 
                     Log.d("GML getAllEvent ", event.getEventName());
                     eventList.add(event);
@@ -606,6 +634,30 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         // return notes list
         return attendanceLogs;
     }
+
+    public int GetTotalTaps(String mccno, Integer eventId) {
+        int retVal = 0;
+        String selectQuery = "SELECT COUNT(*) AS Taps FROM " + Attendance.TABLE_NAME + " where MCCNumber='" + mccno.trim() + "' and EventCode ='" + eventId + "'";
+
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
+            Cursor cursor = db.rawQuery(selectQuery, null);
+
+            if (cursor != null)
+                cursor.moveToFirst();
+
+            retVal = cursor.getInt(cursor.getColumnIndex("Taps"));
+
+            cursor.close();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // close db connection
+
+        return retVal;
+    }
+
+
 
 }
 

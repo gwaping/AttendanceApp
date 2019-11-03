@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">ARF</string>
+    <string name="app_name">Attendance Checker ver 1.0</string>
     <string name="app_tag">ejeep</string>
     <string name="action_logout">Logout</string>
     <string name="action_sync_user_list">Sync User List</string>

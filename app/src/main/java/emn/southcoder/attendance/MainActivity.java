@@ -73,7 +73,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class MainActivity extends AppCompatActivity {
 
     private NfcAdapter nfcAdapter;
-    private TextView textViewBlock, textViewGreetings, textViewLogTimeLabel, textViewRiderCount;
+    private TextView textViewBlock, textViewGreetings, textViewLogTimeLabel, textViewEventName, textViewRiderCount;
     private boolean isNFCSupported = false;
     private boolean loggedIn = false;
     private boolean loginAlertShown = false;
@@ -89,12 +89,17 @@ public class MainActivity extends AppCompatActivity {
     private DatabaseHelper dbHelper;
     private String deviceID = null;
     private int logTimeAllowance = 2; //-- Default value
-    private String selectedEventName = "";
+//    private String selectedEventName = "";
     private String mode;
     private String userMCCNo;
     private String userRole;
     private MCCPlaceHolderApi mccPlaceHolderApi;
     private Menu myMenu;
+
+    // global Event Variables
+
+    private Event selectedEvent;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -135,6 +140,7 @@ public class MainActivity extends AppCompatActivity {
 
         textViewGreetings = findViewById(R.id.txt_greetings);
         textViewBlock = findViewById(R.id.block);
+        textViewEventName = findViewById(R.id.tvEventName);
         textViewRiderCount = findViewById(R.id.tvPassengerCount);
 
         GetPreference();
@@ -233,7 +239,14 @@ public class MainActivity extends AppCompatActivity {
             //-- Setup menu depending on the user login role
             setupMenu();
 
-            textViewRiderCount.setText("Total Passengers: " + String.valueOf(dbHelper.GetTransactionCount()));
+            if ( selectedEvent != null) {
+                textViewEventName.setText("Event : " + selectedEvent.getEventName());
+            }
+            else {
+                textViewEventName.setText("Event : -- None --  ");
+            }
+
+            textViewRiderCount.setText("Total Attendees : " + String.valueOf(dbHelper.GetAttendanceCount()));
         }
         else Toast.makeText(this, "Invalid user", Toast.LENGTH_LONG).show();
     }
@@ -384,6 +397,7 @@ public class MainActivity extends AppCompatActivity {
 
                     if (loggedIn) {
                         try {
+//
                             if (!userRole.contains("admin")) {
                                 SimpleDateFormat dateFormat = new SimpleDateFormat("MMddyy");
                                 Calendar cal = Calendar.getInstance();
@@ -415,8 +429,31 @@ public class MainActivity extends AppCompatActivity {
                                       //  insertEjeepLog(name1, userMCCNo, deviceID, cardserial, mccno.substring(0, 7), cardtype, 0);
 
                                          // use with Attendance
-                                          textViewGreetings.setText("Welcome " + shortName + "!\n Enjoy your free ride.");
-                                          insertAttendanceLog(name1,userMCCNo,deviceID,cardserial,mccno.substring(0, 7),"eventcode","eventsession","eventinout", "eventtime");
+
+                                        if (selectedEvent == null ) {
+                                            textViewGreetings.setText("No Event Selected. Please Try Again.");
+                                            return;
+                                        }
+
+                                        Integer UserTaps = dbHelper.GetTotalTaps(mccno, selectedEvent.getId());
+                                        Integer EventTaps = Integer.valueOf(selectedEvent.getNumTaps());
+
+                                        if (EventTaps > 0) {
+                                           if (UserTaps >= EventTaps) {
+                                               textViewGreetings.setText("Hi " + name1.trim() + "! Maximum Taps Reached. Thank You.");
+                                               return;
+                                           }
+                                        }
+                                        else  {
+                                            if (UserTaps > 0) {
+                                               textViewGreetings.setText("Hi " + name1.trim() + "! You have already tapped your card.");
+                                                return;
+                                            }
+                                        }
+
+                                     //  textViewGreetings.setText("Welcome " + shortName + "!\n Enjoy your free ride.");
+                                        textViewGreetings.setText("Welcome to the Event!\n" + name1);
+                                        insertAttendanceLog(name1,userMCCNo,deviceID,cardserial,mccno.substring(0, 7));
 
                                         //-- Announce expired card
                                         if (now.getTime() > expiryDate.getTime()) {
@@ -432,6 +469,26 @@ public class MainActivity extends AppCompatActivity {
                                 }
                                 textViewBlock.setText(R.string.reading_nfc_success);
                             }
+                            else {
+
+                                if (mode == "CARDINFO") {
+                                    // if userRole Has Admin
+                                    SimpleDateFormat dateFormat = new SimpleDateFormat("MMddyy");
+                                    Calendar cal = Calendar.getInstance();
+                                    Date issueDate = dateFormat.parse(issue.substring(0, 6));
+                                    cal.setTime(issueDate);
+                                    cal.add(Calendar.YEAR, 2);
+                                    Date expiryDate = cal.getTime();
+                                    Date now = new Date();
+
+                                    tvmccnum.setText(mccno.substring(0, 7));
+                                    tvname.setText(name1 + name2 + name3);
+                                    tvbirthdate.setText(mccno.substring(mccno.length()-6, mccno.length()));
+                                    tvissuedate.setText(issue.substring(0, 6));
+                                    tvexpirydate.setText(dateFormat.format(expiryDate));
+                                }
+                            }
+
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -439,7 +496,7 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             if (doesDatabaseExist(getApplicationContext(), "MCC.db")) {
                                 userMCCNo = mccno.substring(0, 7);
-                                VerifyUser(userMCCNo, "ejeep");
+                                VerifyUser(userMCCNo, "attendance");
                             }
                         } catch (Exception ex) {
                             ex.printStackTrace();
@@ -511,6 +568,13 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    private boolean ValidTap (String mccno, Integer eventId) {
+
+
+
+        return true;
+    }
+
     public static void setupForegroundDispatch(final Activity activity, NfcAdapter adapter) {
         final Intent intent = new Intent(activity.getApplicationContext(), activity.getClass());
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -529,6 +593,8 @@ public class MainActivity extends AppCompatActivity {
                 if (myMenu.getItem(i).getItemId() == R.id.action_upload_logs)
                     myMenu.getItem(i).setVisible(false);
                 if (myMenu.getItem(i).getItemId() == R.id.action_sync_user_list)
+                    myMenu.getItem(i).setVisible(false);
+                if (myMenu.getItem(i).getItemId() == R.id.action_log_allowance)
                     myMenu.getItem(i).setVisible(false);
             }
         }
@@ -570,31 +636,23 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void insertAttendanceLog(String name, String userid, String deviceid, String cardserial, String mccno, String eventcode, String eventsession, String eventinout, String eventtime) {
+    private void insertAttendanceLog(String name, String userid, String deviceid, String cardserial, String mccno) {
         //-- Check if log is exceeds time threshold before inserting
-        Attendance attendance = dbHelper.getAttendance(mccno);
+
+      //  Attendance attendance = dbHelper.getAttendance(mccno);
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmssSSS");
         String currentDateTime = dateFormat.format(new Date()); // Find todays date
         String logid = "attendance" + currentDateTime;
 
-        if (attendance != null) {
-            Integer timeThreshold = 1000 * 60 * logTimeAllowance; //--2 minutes
+        String eventcode = Integer.toString(selectedEvent.getId());
+        String eventsession = "0";
+        String eventinout = "0";
+        String eventtime = selectedEvent.getDate();
 
-            if (Math.abs(System.currentTimeMillis() - Timestamp.valueOf(attendance.getTransactionDate()).getTime()) > timeThreshold) {
-                if (dbHelper.insertAttendance(logid, userid, deviceid, cardserial, mccno, eventcode, eventsession, eventinout, eventtime ) >= 0) {
-                    textViewRiderCount.setText("Total Passengers: " + dbHelper.GetTransactionCount());
-                }
-            }
-            else {
-                textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_blue));
-                textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
-                textViewGreetings.setText("Hi " + name + "! You have already tapped your card.");
-            }
-        } else {
-            dbHelper.insertAttendance(logid, userid, deviceid, cardserial, mccno,  eventcode, eventsession, eventinout, eventtime);
+        dbHelper.insertAttendance(logid, userid, deviceid, cardserial, mccno,  eventcode, eventsession, eventinout, eventtime);
 
-            textViewRiderCount.setText("Total Attendees" + dbHelper.GetAttendeeCount());
-        }
+        textViewEventName.setText("Event : " + selectedEvent.getEventName());
+        textViewRiderCount.setText("Total Attendees : " + dbHelper.GetAttendanceCount());
     }
 
     private void showNFCSettings() {
@@ -711,7 +769,7 @@ public class MainActivity extends AppCompatActivity {
             View vwLogin = inflater.inflate(R.layout.activity_login, null);
 
             builder.setView(vwLogin)
-                    .setTitle("EJRF Login")
+                    .setTitle("Attendance Checker Login")
                     .setCancelable(false)
                     .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
                         @Override
@@ -779,6 +837,9 @@ public class MainActivity extends AppCompatActivity {
         tvbirthdate = vwCardInfo.findViewById(R.id.tvBirthdate);
         tvissuedate = vwCardInfo.findViewById(R.id.tvIssueDate);
         tvexpirydate = vwCardInfo.findViewById(R.id.tvExpiryDate);
+
+        Log.d("GML tvname :", tvname.getText().toString());
+
     }
 
     private void showEventSetting(Activity activity) {
@@ -802,7 +863,7 @@ public class MainActivity extends AppCompatActivity {
         spinnerEvent = vwSettings.findViewById(R.id.spinner_event_name);
 
           // get the events from local database
-          ArrayList<Event> eventList = dbHelper.getAllEvents();
+          final ArrayList<Event> eventList = dbHelper.getAllEvents();
             ArrayList<String> arrEventList = new ArrayList<>();
 
             // iterate thru the events and add to arrEventList to add in the form.
@@ -819,9 +880,15 @@ public class MainActivity extends AppCompatActivity {
         spinnerEvent.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                String selectedEvent = parent.getItemAtPosition(position).toString();
+                String selectedEventName = parent.getItemAtPosition(position).toString();
 //                SetTimeAllowance(timeAllowance);
-                Log.d("GML selected Event : ", selectedEvent);
+                Log.d("GML selected Event : ", selectedEventName);
+
+                selectedEvent = dbHelper.getEvent(selectedEventName);
+
+                Log.d("GML selectedEvent", selectedEvent.getEventName() + " " + selectedEvent.getDescription());
+
+                textViewEventName.setText("Event : " + selectedEvent.getEventName());
             }
 
             @Override
@@ -841,6 +908,10 @@ public class MainActivity extends AppCompatActivity {
         });
 
     }
+
+
+
+
 
     private void SetTimeAllowance(String itemSelected) {
         switch (itemSelected) {
@@ -912,9 +983,6 @@ public class MainActivity extends AppCompatActivity {
                             //btnSyncUserList.setVisibility(View.VISIBLE);
 
                              SyncUserList();
-
-                            // Test only
-                            SyncEventList();
                         }
 
                     } else {
@@ -1019,9 +1087,12 @@ public class MainActivity extends AppCompatActivity {
                             String eventname = events.getEventName();
                             String description = events.getDescription();
                             String date = events.getDate();
+                            String numtaps = events.getNumTaps();
+                            String threshholdtime1 = events.getThreshholdTime1();
+                            String threshholdtime2 = events.getThreshholdTime2();
 
-                            Log.d("GML before Insert :", eventname + " " + description + " " + date );
-                            dbHelper.insertEvent(id, eventname, description, date);
+                            Log.d("GML before Insert :", eventname + " " + description + " " + date  + " " + numtaps + " " + threshholdtime1 + " " + threshholdtime2);
+                            dbHelper.insertEvent(id, eventname, description, date, numtaps, threshholdtime1, threshholdtime2);
                         }
 
 //                        status.setText("User list successfully synced!");
@@ -1104,7 +1175,6 @@ public class MainActivity extends AppCompatActivity {
             ArrayList<Attendance> AttendanceList = dbHelper.getAllAttendanceLogs();
             Attendances attendances = new Attendances(AttendanceList);
             Call<Attendances> attendancesCall = mccPlaceHolderApi.createPost(attendances);
-            Log.d("GML Attendance :", AttendanceList.get(3).getId());
 
             attendancesCall.enqueue(new Callback<Attendances>() {
                 @Override
@@ -1118,11 +1188,14 @@ public class MainActivity extends AppCompatActivity {
                     Attendances resp = response.body();
 
                     if (response.code() == 201) { //--successful
-                        int totalTransactions = dbHelper.GetAttendaceCount();
+                        int totalTransactions = dbHelper.GetAttendanceCount();
 
                         //-- Remove uploaded records
                         dbHelper.deleteAttendanceAll();
-                        textViewRiderCount.setText("Total Attendees: 0");
+
+                        textViewEventName.setText("Event : -- None -- ");
+                        textViewRiderCount.setText("Total Attendees : 0");
+
                         Toast.makeText(getApplicationContext(), totalTransactions + " Attendance transactions uploaded", Toast.LENGTH_LONG).show();
                     } else {
                         Toast.makeText(getApplicationContext(), "Attendance transactions upload failed!", Toast.LENGTH_LONG).show();
@@ -1179,4 +1252,6 @@ public class MainActivity extends AppCompatActivity {
 //        int _m = new Period(lastDonateDate,dateToday).getMonths();
 //        //Log.i(PROCESS_MAIN,"Months: " + _m);
 //    }
+
+
 }
