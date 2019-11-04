@@ -20,6 +20,10 @@
         android:title="@string/action_event_info"
         android:orderInCategory="102"
         app:showAsAction="never"/>
+    <item android:id = "@+id/action_show_attendance"
+        android:title="@string/action_show_attendance"
+        android:orderInCategory="102"
+        app:showAsAction="never"/>
     <item android:id = "@+id/action_log_allowance"
         android:title="@string/action_log_allowance"
         android:orderInCategory="102"

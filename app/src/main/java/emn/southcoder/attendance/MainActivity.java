@@ -547,6 +547,9 @@ public class MainActivity extends AppCompatActivity {
                 String selEvent = "Test event name";
                 spinnerEvent.setSelection(getSpinnerItemIndex(spinnerEvent, selEvent));
                 break;
+            case R.id.action_show_attendance:
+                showAttendance( this);
+                break;
             case R.id.action_upload_logs:
 //                UploadTransactionLogs();
                   UploadAttendanceLogs();
@@ -568,11 +571,9 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private boolean ValidTap (String mccno, Integer eventId) {
-
-
-
-        return true;
+    private void showAttendance(Activity activity) {
+        Intent intent = new Intent(MainActivity.this, AttendanceListActivity.class);
+         startActivity(intent);
     }
 
     public static void setupForegroundDispatch(final Activity activity, NfcAdapter adapter) {
@@ -593,8 +594,6 @@ public class MainActivity extends AppCompatActivity {
                 if (myMenu.getItem(i).getItemId() == R.id.action_upload_logs)
                     myMenu.getItem(i).setVisible(false);
                 if (myMenu.getItem(i).getItemId() == R.id.action_sync_user_list)
-                    myMenu.getItem(i).setVisible(false);
-                if (myMenu.getItem(i).getItemId() == R.id.action_log_allowance)
                     myMenu.getItem(i).setVisible(false);
             }
         }
