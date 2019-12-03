@@ -48,6 +48,8 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.text.ParseException;
+
 
 import emn.southcoder.attendance.DatabaseHelper;
 import emn.southcoder.attendance.DeviceApiResponse;
@@ -80,7 +82,7 @@ public class MainActivity extends AppCompatActivity {
     private AlertDialog loginAlert;
     private Animation animBlink;
     private Spinner spinnerTimeAllowance;
-    private Spinner spinnerEvent;
+    private Spinner spinnerEvent, spinnerEventType;
 
     private Button btnVerifyDevice, btnSyncUserList, btnUpdateEvents;
     private TextView status;
@@ -99,6 +101,8 @@ public class MainActivity extends AppCompatActivity {
     // global Event Variables
 
     private Event selectedEvent;
+    private String eventActivityType;
+ //   public static Context context = null;
 
 
     @Override
@@ -240,13 +244,16 @@ public class MainActivity extends AppCompatActivity {
             setupMenu();
 
             if ( selectedEvent != null) {
-                textViewEventName.setText("Event : " + selectedEvent.getEventName());
+//                textViewEventName.setText("Event : " + selectedEvent.getEventName());
+                textViewEventName.setText("Event : " + selectedEvent.getEventName() + " - " +  eventActivityType);
+                textViewRiderCount.setText("Total Attendees : " + String.valueOf(dbHelper.GetAttendanceCount(selectedEvent.getId())));
             }
             else {
                 textViewEventName.setText("Event : -- None --  ");
+                textViewRiderCount.setText("Total Attendees : 0");
             }
 
-            textViewRiderCount.setText("Total Attendees : " + String.valueOf(dbHelper.GetAttendanceCount()));
+            //textViewRiderCount.setText("Total Attendees : " + String.valueOf(dbHelper.GetAttendanceCount()));
         }
         else Toast.makeText(this, "Invalid user", Toast.LENGTH_LONG).show();
     }
@@ -307,6 +314,22 @@ public class MainActivity extends AppCompatActivity {
         byte[] southcoderTag = new byte[MifareClassic.BLOCK_SIZE];
         //private Context mContext;
 
+        // clem's variable
+        // --------------------------------
+        byte[] attendance_block1 = new byte[MifareClassic.BLOCK_SIZE];
+        byte[] attendance_block2 = new byte[MifareClassic.BLOCK_SIZE];
+        byte[] attendance_block3 = new byte[MifareClassic.BLOCK_SIZE];
+        byte[] attendance_block4 = new byte[MifareClassic.BLOCK_SIZE];
+        String attendanceBlock1, attendanceBlock2, attendanceBlock3,attendanceBlock4;
+        boolean write_attendanceBlock1 = false;
+        boolean write_attendanceBlock2 = false;
+        boolean write_attendanceBlock3 = false;
+        boolean write_attendanceBlock4 = false;
+
+        String attendance_code="";
+
+        // --------------------------------
+
         ReadMifareClassicTask(MifareClassic tag, Context context){
             mifareClassic = tag;
             success = false;
@@ -362,6 +385,153 @@ public class MainActivity extends AppCompatActivity {
                 }
                 else success = false;
 
+                // Clem's code here
+                // -------------------------------
+                //-- Read values from sector 13
+
+//                try {
+//                    if (mifareClassic.authenticateSectorWithKeyB(13, accessKeyB)) {
+//                        attendance_block1 = mifareClassic.readBlock(52);
+//                        attendance_block2 = mifareClassic.readBlock(53);
+//                        attendance_block3 = mifareClassic.readBlock(54);
+//                    } else success = false;
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//
+//                //-- Read values from sector 14
+//                try {
+//                    if (mifareClassic.authenticateSectorWithKeyB(14, accessKeyB)) {
+//                        attendance_block4 = mifareClassic.readBlock(56);
+//                    } else success = false;
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//
+//                boolean write_tap = false;
+//                if (selectedEvent.getNumTaps() == "2")
+//                {
+//                    if (eventActivityType == "IN") {
+////verify if there is already an out for same event code - set event code
+//                        String attendanceBlock2 = hexToString(attendance_block2);
+//                        if (attendanceBlock2.equals("")) {
+////ok
+//                            write_tap = true;
+//                        }
+//                        else {
+//                            if (attendanceBlock2.substring(0,3)== String.valueOf(selectedEvent.getId()))  {
+////set message that member has already had a timeout
+//                                write_tap = false;
+//                            }
+//                            else {
+//                                write_tap = true;
+//                            }
+//                        }
+//                        if (write_tap) {
+//                            write_attendanceBlock1=true;
+//                        }
+//
+//                    }
+//                    else if (eventActivityType == "OUT") {
+//// session is out
+//                        if (write_tap) {
+//                            write_attendanceBlock2=true;
+//                        }
+//                    }
+//                }
+//                else {
+////taps == 4
+//                    if (eventActivityType == "Morning - IN")
+//                    {
+////verify if event code equals to morning out
+//                        if (attendanceBlock2.substring(0,3) == String.valueOf(selectedEvent.getId()) ||
+//                            attendanceBlock3.substring(0,3) == String.valueOf(selectedEvent.getId()) ||
+//                            attendanceBlock3.substring(0,3) == String.valueOf(selectedEvent.getId())) {
+////set message that member has already had a timeout
+//                            write_tap = false;
+//                            write_attendanceBlock1 = false;
+//                        }
+//                    } else if (eventActivityType == "Morning - OUT") {
+//                        if (attendanceBlock3.substring(0,3) == String.valueOf(selectedEvent.getId()) ||
+//                            attendanceBlock3.substring(0,3) == String.valueOf(selectedEvent.getId())) {
+//                            write_tap = false;
+//                            write_attendanceBlock2 = false;
+//                        }
+//                    } else if (eventActivityType == "Afternoon - IN") {
+//                        if (attendanceBlock3.substring(0,3) == String.valueOf(selectedEvent.getId()) ||
+//                            attendanceBlock3.substring(0,3)== String.valueOf(selectedEvent.getId())) {
+//                            write_tap = false;
+//                            write_attendanceBlock3 = false;
+//                        } else {
+//                        }
+//                    } else if (eventActivityType == "Afternoon - OUT") {
+//                        if (attendanceBlock4.trim() == "")  {
+//                            write_tap = false;
+//                            write_attendanceBlock4 = false;
+//                        }
+//                    }
+//                }
+//
+//                if (write_attendanceBlock1) {
+//                    try {
+//                        if (mifareClassic.authenticateSectorWithKeyB(13, accessKeyB)) {
+//                            byte[] bWrite = new byte[16];
+//                            byte[] attCode = attendance_code.getBytes();
+//                            System.arraycopy(attCode, 0, bWrite, 0, attCode.length);
+//                            mifareClassic.writeBlock(52, bWrite);
+//                          // Log.i(PROCESS_MAIN, "Write successfull");
+//                        } else success = false;
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//
+//                if (write_attendanceBlock2) {
+//                    try {
+//                        if (mifareClassic.authenticateSectorWithKeyB(13, accessKeyB)) {
+//                            byte[] bWrite = new byte[16];
+//                            byte[] attCode = attendance_code.getBytes();
+//                            System.arraycopy(attCode, 0, bWrite, 0, attCode.length);
+//                            mifareClassic.writeBlock(53, bWrite);
+//                          //  Log.i(PROCESS_MAIN, "Write successfull");
+//                        } else success = false;
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//
+//                if (write_attendanceBlock3) {
+//                    try {
+//                        if (mifareClassic.authenticateSectorWithKeyB(13, accessKeyB)) {
+//                            byte[] bWrite = new byte[16];
+//                            byte[] attCode = attendance_code.getBytes();
+//                            System.arraycopy(attCode, 0, bWrite, 0, attCode.length);
+//                            mifareClassic.writeBlock(54, bWrite);
+//                           // Log.i(PROCESS_MAIN, "Write successfull");
+//                        } else success = false;
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//
+//                if (write_attendanceBlock4) {
+//                    try {
+//                        if (mifareClassic.authenticateSectorWithKeyB(14, accessKeyB)) {
+//
+//                            byte[] bWrite = new byte[16];
+//                            byte[] attCode = attendance_code.getBytes();
+//                            System.arraycopy(attCode, 0, bWrite, 0, attCode.length);
+//                            mifareClassic.writeBlock(56, bWrite);
+//                           // Log.i(PROCESS_MAIN, "Write successfull");
+//                        } else success = false;
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+
+                // -------------------------------
+                // end Clem's code
+
                 acknowledgeBeep();
             } catch (IOException e) {
                 clearMessage();
@@ -408,11 +578,13 @@ public class MainActivity extends AppCompatActivity {
                                 Date now = new Date();
 
                                 if (mode == "CARDINFO") {
+
                                     tvmccnum.setText(mccno.substring(0, 7));
                                     tvname.setText(name1 + name2 + name3);
-                                    tvbirthdate.setText(mccno.substring(mccno.length()-6, mccno.length()));
-                                    tvissuedate.setText(issue.substring(0, 6));
-                                    tvexpirydate.setText(dateFormat.format(expiryDate));
+                                    tvbirthdate.setText( formatDateStr(mccno.substring(mccno.length()-6, mccno.length())));
+
+                                    tvissuedate.setText(formatDateStr(issue.substring(0, 6)));
+                                    tvexpirydate.setText(formatDateStr(dateFormat.format(expiryDate)));
                                 } else {
                                     if (mccno != "") {
                                         textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_blue));
@@ -435,31 +607,32 @@ public class MainActivity extends AppCompatActivity {
                                             return;
                                         }
 
-                                        Integer UserTaps = dbHelper.GetTotalTaps(mccno, selectedEvent.getId());
-                                        Integer EventTaps = Integer.valueOf(selectedEvent.getNumTaps());
+                                        // check if user is already tapped
 
-                                        if (EventTaps > 0) {
-                                           if (UserTaps >= EventTaps) {
-                                               textViewGreetings.setText("Hi " + name1.trim() + "! Maximum Taps Reached. Thank You.");
-                                               return;
-                                           }
-                                        }
-                                        else  {
-                                            if (UserTaps > 0) {
+//                                        Integer UserTaps = dbHelper.GetTotalTaps(mccno, selectedEvent.getId());
+                                        Integer UserTaps = dbHelper.GetTotalTaps(mccno, selectedEvent.getId(), eventActivityType);
+
+                                        if (UserTaps > 0) {
                                                textViewGreetings.setText("Hi " + name1.trim() + "! You have already tapped your card.");
-                                                return;
-                                            }
+
+                                               MediaPlayer mediaPlayer = MediaPlayer.create(getApplicationContext(), R.raw.already_tapped);
+                                               mediaPlayer.start();
+                                               return;
                                         }
 
-                                     //  textViewGreetings.setText("Welcome " + shortName + "!\n Enjoy your free ride.");
                                         textViewGreetings.setText("Welcome to the Event!\n" + name1);
-                                        insertAttendanceLog(name1,userMCCNo,deviceID,cardserial,mccno.substring(0, 7));
 
-                                        //-- Announce expired card
-                                        if (now.getTime() > expiryDate.getTime()) {
-                                            MediaPlayer mediaPlayer = MediaPlayer.create(getApplicationContext(), R.raw.card_expired_audio);
-                                            mediaPlayer.start();
+                                        boolean cardexpired = now.getTime() > expiryDate.getTime();
+
+                                        //--Special condition for paymaya cards
+                                        if (cardtype == 4)
+                                        {
+                                            Date payMayaExpiry = dateFormat.parse("11012021");
+                                            cardexpired = now.getTime() > payMayaExpiry.getTime();
                                         }
+
+//                                         insertAttendanceLog(name1,userMCCNo,deviceID,cardserial,mccno.substring(0, 7));
+                                        insertAttendanceLog(name1,userMCCNo,deviceID,cardserial,mccno.substring(0, 7), cardtype, cardexpired ? 1 : 0);
                                     }
                                     else {
                                         textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_red));
@@ -544,8 +717,8 @@ public class MainActivity extends AppCompatActivity {
                 break;
             case R.id.action_event_info:
                 showEventSetting(this);
-                String selEvent = "Test event name";
-                spinnerEvent.setSelection(getSpinnerItemIndex(spinnerEvent, selEvent));
+//                String selEvent = "Test event name";
+//                spinnerEvent.setSelection(getSpinnerItemIndex(spinnerEvent, selEvent));
                 break;
             case R.id.action_show_attendance:
                 showAttendance( this);
@@ -569,6 +742,11 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private String hexToString(byte[] byteval) {
+        String datastring = hexToAscii(byteToString(byteval, MifareClassic.BLOCK_SIZE));
+        return datastring.trim();
     }
 
     private void showAttendance(Activity activity) {
@@ -595,6 +773,18 @@ public class MainActivity extends AppCompatActivity {
                     myMenu.getItem(i).setVisible(false);
                 if (myMenu.getItem(i).getItemId() == R.id.action_sync_user_list)
                     myMenu.getItem(i).setVisible(false);
+                if (myMenu.getItem(i).getItemId() == R.id.action_log_allowance)
+                    myMenu.getItem(i).setVisible(false);
+
+            }
+            else {
+                if (myMenu.getItem(i).getItemId() == R.id.action_upload_logs)
+                    myMenu.getItem(i).setVisible(true);
+                if (myMenu.getItem(i).getItemId() == R.id.action_sync_user_list)
+                    myMenu.getItem(i).setVisible(true);
+                if (myMenu.getItem(i).getItemId() == R.id.action_log_allowance)
+                    myMenu.getItem(i).setVisible(false);
+
             }
         }
     }
@@ -628,6 +818,9 @@ public class MainActivity extends AppCompatActivity {
                 textViewGreetings.setBackground(getResources().getDrawable(R.drawable.rounded_corner_tv_blue));
                 textViewGreetings.setTextColor(getResources().getColor(R.color.colorWhite));
                 textViewGreetings.setText("Hi " + name + "! You have already tapped your card.");
+
+//                MediaPlayer mediaPlayer = MediaPlayer.create(getApplicationContext(), R.raw.already_tapped);
+//                mediaPlayer.start();
             }
         } else {
             dbHelper.insertEjeepTransaction(logid, userid, deviceid, cardserial, mccno, cardtype, isexpired);
@@ -635,7 +828,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void insertAttendanceLog(String name, String userid, String deviceid, String cardserial, String mccno) {
+    private void insertAttendanceLog(String name, String userid, String deviceid, String cardserial, String mccno, Integer cardtype, Integer isexpired) {
         //-- Check if log is exceeds time threshold before inserting
 
       //  Attendance attendance = dbHelper.getAttendance(mccno);
@@ -645,13 +838,26 @@ public class MainActivity extends AppCompatActivity {
 
         String eventcode = Integer.toString(selectedEvent.getId());
         String eventsession = "0";
-        String eventinout = "0";
+        String eventinout = eventActivityType;
         String eventtime = selectedEvent.getDate();
+
+        if (isexpired == 1) {
+            AnnounceExpiredCard();
+        }
 
         dbHelper.insertAttendance(logid, userid, deviceid, cardserial, mccno,  eventcode, eventsession, eventinout, eventtime);
 
-        textViewEventName.setText("Event : " + selectedEvent.getEventName());
-        textViewRiderCount.setText("Total Attendees : " + dbHelper.GetAttendanceCount());
+//        textViewEventName.setText("Event : " + selectedEvent.getEventName());
+        textViewEventName.setText("Event : " + selectedEvent.getEventName() + " - " +  eventActivityType);
+        textViewRiderCount.setText("Total Attendees : " + dbHelper.GetAttendanceCount(selectedEvent.getId()));
+    }
+
+    private void AnnounceExpiredCard() {
+        textViewGreetings.setBackground(getResources().getDrawable(R.drawable.ic_expired));
+        textViewGreetings.setText("");
+
+        MediaPlayer mediaPlayer = MediaPlayer.create(getApplicationContext(), R.raw.card_expired_audio);
+        mediaPlayer.start();
     }
 
     private void showNFCSettings() {
@@ -845,7 +1051,8 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(activity);
 
         LayoutInflater inflater = activity.getLayoutInflater();
-        View vwSettings = inflater.inflate(R.layout.activity_event_settings, null);
+        final View vwSettings = inflater.inflate(R.layout.activity_event_settings, null);
+        final ArrayList<String> arrActivityType = new ArrayList<>();
 
         builder.setView(vwSettings)
                 .setCancelable(false)
@@ -860,9 +1067,11 @@ public class MainActivity extends AppCompatActivity {
         settingsAlert.show();
 
         spinnerEvent = vwSettings.findViewById(R.id.spinner_event_name);
+        spinnerEventType = vwSettings.findViewById(R.id.spinner_event_activity);
+
 
           // get the events from local database
-          final ArrayList<Event> eventList = dbHelper.getAllEvents();
+            final ArrayList<Event> eventList = dbHelper.getAllEvents();
             ArrayList<String> arrEventList = new ArrayList<>();
 
             // iterate thru the events and add to arrEventList to add in the form.
@@ -880,14 +1089,37 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selectedEventName = parent.getItemAtPosition(position).toString();
-//                SetTimeAllowance(timeAllowance);
                 Log.d("GML selected Event : ", selectedEventName);
 
                 selectedEvent = dbHelper.getEvent(selectedEventName);
 
-                Log.d("GML selectedEvent", selectedEvent.getEventName() + " " + selectedEvent.getDescription());
+              //  Log.d("GML selectedEvent", selectedEvent.getEventName() + " " + selectedEvent.getDescription());
 
-                textViewEventName.setText("Event : " + selectedEvent.getEventName());
+                arrActivityType.clear();
+
+                switch (selectedEvent.getNumTaps()) {
+                    case "0":
+                    case "1":
+
+                        arrActivityType.add("IN");
+                        break;
+                    case "2":
+                        arrActivityType.add("IN");
+                        arrActivityType.add("OUT");
+                        break;
+                    case "4":
+                        arrActivityType.add("Morning - IN");
+                        arrActivityType.add("Morning - OUT");
+                        arrActivityType.add("Afternoon - IN");
+                        arrActivityType.add("Afternoon - OUT");
+                        break;
+
+                }
+
+                ArrayAdapter<String> arrayTypeAdapter = new ArrayAdapter<String>(vwSettings.getContext(), R.layout.support_simple_spinner_dropdown_item, arrActivityType);
+                arrayTypeAdapter.setDropDownViewResource(R.layout.support_simple_spinner_dropdown_item);
+                spinnerEventType.setAdapter(arrayTypeAdapter);
+
             }
 
             @Override
@@ -895,6 +1127,24 @@ public class MainActivity extends AppCompatActivity {
 
             }
         });
+
+        spinnerEventType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                eventActivityType = parent.getItemAtPosition(position).toString();
+                textViewEventName.setText("Event : " + selectedEvent.getEventName() + " - " +  eventActivityType);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
+
+//        if (selectedEvent != null && eventActivityType.trim() != "" ) {
+//            textViewEventName.setText("Event : " + selectedEvent.getEventName() + " - " +  eventActivityType);
+//        }
+
 
         btnUpdateEvents = vwSettings.findViewById(R.id.btn_update_events);
         btnUpdateEvents.setOnClickListener(new View.OnClickListener() {
@@ -906,10 +1156,21 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        settingsAlert.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                                               @Override
+                                               public void onDismiss(DialogInterface dialog) {
+//                                                   Log.d("GML on OK Event Setting :", selectedEvent.getEventName());
+
+                                                   if (selectedEvent != null) {
+                                                       textViewEventName.setText("Event : " + selectedEvent.getEventName() + " - " +  eventActivityType);
+                                                       textViewRiderCount.setText("Total Attendees : " + String.valueOf(dbHelper.GetAttendanceCount(selectedEvent.getId())));
+                                                   }
+
+                                               }
+                                           }
+        );
+
     }
-
-
-
 
 
     private void SetTimeAllowance(String itemSelected) {
@@ -1187,7 +1448,7 @@ public class MainActivity extends AppCompatActivity {
                     Attendances resp = response.body();
 
                     if (response.code() == 201) { //--successful
-                        int totalTransactions = dbHelper.GetAttendanceCount();
+                        int totalTransactions = dbHelper.GetAllAttendanceCount();
 
                         //-- Remove uploaded records
                         dbHelper.deleteAttendanceAll();
@@ -1250,6 +1511,33 @@ public class MainActivity extends AppCompatActivity {
 //        Days _days = Days.daysBetween(lastDonateDate,dateToday);
 //        int _m = new Period(lastDonateDate,dateToday).getMonths();
 //        //Log.i(PROCESS_MAIN,"Months: " + _m);
+//    }
+
+    private String formatDateStr(String datestr) {
+        String outFormat = "";
+        SimpleDateFormat dateformatter = new SimpleDateFormat("MMM dd, yyyy");
+        SimpleDateFormat f = new SimpleDateFormat("MMddyy");
+        Date d = null;
+        try {
+            d = f.parse(datestr);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }try {
+            outFormat = dateformatter.format(d);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return outFormat;
+    }
+
+//    protected void onStop() {
+//        super.onStop();
+//        if (MainActivity.context == context) { //user home button out
+//        //    AppStartEnd.sendAppEndData(context);
+//        //    Log.i(PROCESS_MAIN, "HOME PRESSED");
+//            finishAndRemoveTask();
+//
+//        }
 //    }
 
 

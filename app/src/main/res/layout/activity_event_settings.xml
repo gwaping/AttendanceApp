@@ -28,21 +28,44 @@
         android:background="@drawable/rounded_corner_tv_gray"
         android:padding="10dp" />
 
+    <TextView
+        android:id="@+id/tvEventActivity"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:textAlignment="center"
+        android:textSize="17sp"
+        android:textStyle="italic"
+        android:textColor="@color/colorBlue"
+        android:text="@string/event_log_type" />
+
+    <Spinner
+        android:id="@+id/spinner_event_activity"
+        android:layout_width="match_parent"
+        android:layout_height="45dp"
+        android:layout_below="@id/imageView"
+        android:layout_marginLeft="10dp"
+        android:layout_marginRight="10dp"
+        android:layout_marginBottom="5dp"
+        android:background="@drawable/rounded_corner_tv_gray"
+        android:padding="10dp" />
+
     <Button
         android:id="@+id/btn_update_events"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/rounded_corner_blue"
-        android:padding="10dp"
-        android:layout_marginTop="10dp"
+        android:layout_below="@id/spinner_time_allowance"
         android:layout_marginLeft="10dp"
+        android:layout_marginTop="10dp"
         android:layout_marginRight="10dp"
         android:layout_marginBottom="10dp"
-        android:layout_below="@id/spinner_time_allowance"
-        android:textStyle="normal"
+        android:background="@drawable/rounded_corner_blue"
+        android:padding="10dp"
+        android:text="@string/update_events"
         android:textColor="#ffff"
         android:textSize="17sp"
-        android:text="@string/update_events" />
+        android:textStyle="normal" />
 
 
 </LinearLayout>

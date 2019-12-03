@@ -26,6 +26,7 @@
     <string name="please_tap_card">Please tap your card</string>
     <string name="log_time">Log Time Allowance</string>
     <string name="event_selected">Current Selected Event</string>
+    <string name="event_log_type">Log Type</string>
     <string name="invalid_card">Your may have an invalid card</string>
     <string name="reading_nfc_success">Reading NFC card successful</string>
 </resources>

@@ -278,8 +278,31 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
 
+    public int GetAttendanceCount(int eventId) {
+        int retVal = 0;
+       // String selectQuery = "SELECT COUNT(DISTINCT " + Attendance.COLUMN_CARDSERIAL + " ) AS totalTransaction FROM " + Attendance.TABLE_NAME;
+        String selectQuery = "SELECT COUNT(DISTINCT " + Attendance.COLUMN_CARDSERIAL + " ) AS totalTransaction FROM " + Attendance.TABLE_NAME + " WHERE " + Attendance.COLUMN_EVENTCODE + " = " + eventId;
 
-    public int GetAttendanceCount() {
+
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
+            Cursor cursor = db.rawQuery(selectQuery, null);
+
+            if (cursor != null)
+                cursor.moveToFirst();
+
+            retVal = cursor.getInt(cursor.getColumnIndex("totalTransaction"));
+
+            cursor.close();
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // close db connection
+
+        return retVal;
+    }
+
+    public int GetAllAttendanceCount() {
         int retVal = 0;
         String selectQuery = "SELECT COUNT(DISTINCT " + Attendance.COLUMN_CARDSERIAL + " ) AS totalTransaction FROM " + Attendance.TABLE_NAME;
 
@@ -635,9 +658,49 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return attendanceLogs;
     }
 
-    public int GetTotalTaps(String mccno, Integer eventId) {
+    public ArrayList<String> viewAttendance() {
+        ArrayList<String> attendanceLogs = new ArrayList<>();
+
+        // Select All Query
+       // String selectQuery = "SELECT  * FROM " + Attendance.TABLE_NAME + " ORDER BY " +  Attendance.COLUMN_TRANSACTIONDATE + " ASC";
+        String selectQuery = "select eventname, count(distinct(mccnumber)) as Attendees from attendance INNER JOIN events on attendance.eventcode = events.id group by eventcode";
+
+        try (SQLiteDatabase db = this.getWritableDatabase()) {
+            Cursor cursor = db.rawQuery(selectQuery, null);
+
+            // looping through all rows and adding to list
+            if (cursor.moveToFirst()) {
+                do {
+//                    Attendance attendance = new Attendance();
+//                    attendance.setId(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_ID)));
+//                    attendance.setUserId(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_USERID)));
+//                    attendance.setCardSerial(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_CARDSERIAL)));
+//                    attendance.setMCCNumber(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_MCCNUMBER)));
+//                    attendance.setEftposSerial(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_EFTPOSSERIAL)));
+//                    attendance.setTransactionDate(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_TRANSACTIONDATE)));
+//                    attendance.setEventCode(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_EVENTCODE)));
+//                    attendance.setEventInOut(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_EVENTINOUT)));
+//                    attendance.setEventSession(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_EVENTSESSION)));
+//                    attendance.setEventTime(cursor.getString(cursor.getColumnIndex(Attendance.COLUMN_EVENTTIME)));
+                      String tempString =  cursor.getString(cursor.getColumnIndex("EventName")) + " - Attendees : " + cursor.getString(cursor.getColumnIndex("Attendees"));
+
+                    attendanceLogs.add(tempString);
+                } while (cursor.moveToNext());
+            }
+
+            cursor.close();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        // close db connection
+
+        // return notes list
+        return attendanceLogs;
+    }
+
+    public int GetTotalTaps(String mccno, Integer eventId, String eventActivityType ) {
         int retVal = 0;
-        String selectQuery = "SELECT COUNT(*) AS Taps FROM " + Attendance.TABLE_NAME + " where MCCNumber='" + mccno.trim() + "' and EventCode ='" + eventId + "'";
+        String selectQuery = "SELECT COUNT(*) AS Taps FROM " + Attendance.TABLE_NAME + " where MCCNumber='" + mccno.substring(0,7) + "' and EventCode ='" + eventId + "'" + " and EventInOut = '" + eventActivityType + "'";
 
         try (SQLiteDatabase db = this.getWritableDatabase()) {
             Cursor cursor = db.rawQuery(selectQuery, null);
